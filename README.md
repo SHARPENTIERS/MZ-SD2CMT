@@ -64,12 +64,12 @@ Wire up as above, and program the Arduino using the IDE.
 
 Drop some LEP files (converted MZF Files through mzf2lep tool) onto a FAT32 formatted SD card, plug it into the sd2mzcmt, and power on.
 
-Tool mzf2lep can convert a MZF/MZT/M12 file into a lep in five ways:
+Tool mzf2lep can convert a MZF/MZT/M12 file into a LEP file in five ways:
 - conventional tape data (2 header blocks followed by 2 data blocks) at 1200 baud
 - fast tape data (shorter gaps, 1 header block followed by a 1 data block)
-- turbo x2 tape data (first turbo loader as a fast tape data then 1 header block and 1 data block read twice as fast)
-- turbo x3 tape data (first turbo loader as a fast tape data then 1 header block and 1 data block read trice as fast)
-- turbo x4 tape data (first turbo loader as a fast tape data then 1 header block and 1 data block read four times as fast)
+- turbo x2 tape data (first turbo loader as a fast tape data then 1 data block read twice as fast)
+- turbo x3 tape data (first turbo loader as a fast tape data then 1 data block read trice as fast)
+- turbo x4 tape data (first turbo loader as a fast tape data then 1 data block read four times as fast)
 
 ## Issues
 
