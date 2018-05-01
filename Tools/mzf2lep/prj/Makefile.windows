@@ -1,0 +1,23 @@
+CC = cl
+CFLAGS = /EHsc /O2
+
+EXEC = mzf2lep.exe
+MAIN = mzf2lep.c
+OBJS = physical.obj methods.obj args.obj wav.obj 
+
+all: $(EXEC)
+
+release: all
+	copy $(EXEC) ..\bin
+
+.cc.o:
+	$(CC) $(CFLAGS) /c $<
+	
+$(EXEC): $(MAIN) $(OBJS)
+	$(CC) $(CFLAGS) /Fe$@ $(MAIN) $(OBJS)
+
+clean:
+	del *.obj
+
+cleanall: clean
+	del $(EXEC)
