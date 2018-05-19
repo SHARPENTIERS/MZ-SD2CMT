@@ -7,8 +7,8 @@ SD card based CMT for MZ 80K series
 3. 16x2 4-bit parallel LCD with 5 x Buttons
 
 Examples of what I used:
-- an Arduino MEGA 2560 R3 ATMEGA 16U2: https://www.amazon.fr/gp/product/B06XNPKSDK, https://www.miniinthebox.com/fr/p/funduino-mega-2560-conseil-du-developpement-r3_p903322.html.
-- a 16x2 LCD with 5 buttons: https://www.amazon.fr/gp/product/B01EYW5R5M, https://www.miniinthebox.com/fr/p/16-x-2-bouclier-clavier-lcd-pour-arduino-uno-duemilanove-mega_p340888.html?prm=2.3.5.6.
+- an Arduino MEGA 2560 R3 ATMEGA 16U2: [Amazon](https://www.amazon.fr/gp/product/B06XNPKSDK), [MiniInTheBox](https://www.miniinthebox.com/fr/p/funduino-mega-2560-conseil-du-developpement-r3_p903322.html).
+- a 16x2 LCD with 5 buttons: [Amazon](https://www.amazon.fr/gp/product/B01EYW5R5M), [MiniInTheBox](https://www.miniinthebox.com/fr/p/16-x-2-bouclier-clavier-lcd-pour-arduino-uno-duemilanove-mega_p340888.html).
 - Dupont Wires to connect the Arduino to the SD card module and the MZ tape connector.
 - a LED to show transfer activity.
 
