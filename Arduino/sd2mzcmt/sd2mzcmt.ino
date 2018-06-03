@@ -599,7 +599,7 @@ void playLEP()
   digitalWrite(MZT_CS, LOW); // signal /SENSE at 0 to acknowledge the MZ that data is ready
 
   last_edge = micros(); // initial elapsed time
-  delta = 0;
+  delta = 125000 * LEP_UNIT; // foolish MONITOR MOTOR call which waits for 2s
             
   while (count < total) // read all the LEP bytes from the file
   {
@@ -623,7 +623,7 @@ void playLEP()
       displayResumePlayingMessage();
            
       last_edge = micros(); // reset
-      delta = 0 * LEP_UNIT;
+      delta = 125000 * LEP_UNIT; // foolish MONITOR MOTOR call which waits for 2s
     }
 
     if (next) // the following LEP byte is immediately available
@@ -679,7 +679,8 @@ void playLEP()
     }
   }
   digitalWrite(MZT_LO, 0); // it's over, no more led.
-  digitalWrite(MZT_CS, HIGH);  // reset the /SENSE signal to 1
+  digitalWrite(MZT_CS, HIGH); // reset the /SENSE signal to 1
+  digitalWrite(MZT_DO, HIGH);
 }
 
 // SCK = /SENSE ---> MZ inputs  MOTOR (PC4), MOTOR = not /SENSE

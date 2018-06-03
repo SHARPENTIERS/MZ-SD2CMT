@@ -95,7 +95,7 @@ void trans(byte *image, int hdr)
 
 	if (hdr)
 	{
-		gap(4000);                      // Longish gap.
+		gap(128);                      // Longish gap.
 		tapemark(40);                   // Long tapemark.
 
 		for (i = 0x0; i < 0x80; i++)    // The mzf header.
@@ -103,13 +103,11 @@ void trans(byte *image, int hdr)
 			cs += writebyte(image[i]);
 		}
 		writecs(cs);                    // The checksum of the mzf header.
-		//gap(5000);                      // Shortish gap.
-		gap(4000);                      // Shortish gap.
+		gap(128);                      // Shortish gap.
 	}
 	else
 	{
-		//gap(12000);                      // Shortish gap.
-		gap(4000);                      // Shortish gap.
+		gap(128);                      // Shortish gap.
 	}
 	tapemark(20);                   // Short tapemark.
 
@@ -129,7 +127,8 @@ void conv(byte *image, int hdr)
 	word	fs = getfilesize(image);
 	word	i = 0x0;
 
-	gap(22000);                     // Long gap.
+	//gap(128);
+	gap(11000);                     // Long gap.
 	tapemark(40);                   // Long tapemark.
 
 	for (i = 0x0; i < 0x80; i++)    // The mzf header.
@@ -137,7 +136,6 @@ void conv(byte *image, int hdr)
 		cs += writebyte(image[i]);
 	}
 	writecs(cs);                    // The checksum of the mzf header.
-
 	gap(256);                       // 256 short pulses.
 
 	for (i = 0x0; i < 0x80; i++)    // The copy of the mzf header.
@@ -145,7 +143,7 @@ void conv(byte *image, int hdr)
 		writebyte(image[i]);
 	}
 	writecs(cs);                    // The copy of the checksum of the mzf header.
-
+	//gap(128);
 	gap(11000);                     // Short gap.
 	tapemark(20);                   // Short tapemark.
 
@@ -156,7 +154,6 @@ void conv(byte *image, int hdr)
 		cs += writebyte(image[i]);
 	}
 	writecs(cs);                    // The checksum of the body.
-
 	gap(256);                       // 256 short pulses.
 
 	for (i = 0x80; i < fs; i++)     // The copy of the mzf body.
