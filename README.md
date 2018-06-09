@@ -1,4 +1,4 @@
-# SD2MZCMT
+# MZ-SD2CMT
 SD card based CMT for MZ 80K series
 
 ## Parts Used
@@ -17,47 +17,59 @@ You need SdFat and CrystalLiquid libraries: they are available from Arduino IDE.
 
 ## Wiring
 
-Arduino MEGA Pins:<br/>
-A0        <- BUTTON (UP/DOWN/LEFT/RIGHT/SELECT)<br/>
-        4 -> LCD D4<br/>
-        5 -> LCD D5<br/>
-        6 -> LCD D6<br/>
-        7 -> LCD D7<br/>
-        8 -> LCD RESET<br/>
-        9 -> LCD ENABLE<br/>
-RX3    15 <- MZCMT WRITE<br/>
-TX2    16 <- MZCMT MOTOR<br/>
-RX2    17 -> MZCMT READ<br/>
-TX1    18 -> MZCMT /SENSE<br/>
-RX1    19 -> MZCMT LED<br/>
-       50 -> SD MOSI (SD Card MOSI PIN)<br/>
-       51 -> SD MISO (SD Card MI PIN)<br/>
-       52 -> SD SCK  (SD Card SCK PIN)<br/>
-       53 -> SD SS   (SD Card slave select)<br/>
-<br/>
-<br/>
-LCD PINS:<br/>
-D4    <- 4 ARDUINO<br/>
-D4    <- 5 ARDUINO<br/>
-D4    <- 6 ARDUINO<br/>
-D4    <- 7 ARDUINO<br/>
-RESET <- 8 ARDUINO<br/>
-VCC   <- 5v<br/>
-GND   <- GND<br/>
-<br/>
-SD CARD PINS:<br/>
- GND <- GND<br/>
-3.3V <- NC<br/>
-  5V <- 5V<br/>
-MOSI <- 50 ARDUINO<br/>
-MISO -> 51 ARDUINO<br/>
- SCK <- 52 ARDUINO<br/>
-SDCS <- 53 ARDUINO<br/>
-<br/>
-LED PIN:<br/>
- GND <- GND<br/>
-  5V <- 19 ARDUINO<br/>
-<br/>
+Arduino MEGA Pins:
+
+ Name | Number | Direction | Description                       
+ ---- | ------:|:---------:|:-----------
+ A0   |        | <-        | BUTTON (UP/DOWN/LEFT/RIGHT/SELECT)
+ .    | 4      | ->        | LCD D4
+ .    | 5      | ->        | LCD D5
+ .    | 6      | ->        | LCD D6
+ .    | 7      | ->        | LCD D7
+ .    | 8      | ->        | LCD RESET
+ .    | 9      | ->        | LCD ENABLE
+ RX3  | 15     | <-        | MZCMT WRITE
+ TX2  | 16     | <-        | MZCMT MOTOR
+ RX2  | 17     | ->        | MZCMT READ
+ TX1  | 18     | ->        | MZCMT /SENSE
+ RX1  | 19     | ->        | MZCMT LED
+ .    | 50     | ->        | SD MOSI (SD Card MOSI PIN)
+ .    | 51     | <-        | SD MISO (SD Card MI PIN)
+ .    | 52     | ->        | SD SCK  (SD Card SCK PIN)
+ .    | 53     | ->        | SD SS   (SD Card slave select)
+
+
+LCD Pins:
+
+ Name | Direction | Connected to                       
+ ---- |:---------:|:------------
+ D4   | <-        | ARDUINO #4
+ D5   | <-        | ARDUINO #5
+ D6   | <-        | ARDUINO #6
+ D7   | <-        | ARDUINO #7
+ RESET| <-        | ARDUINO #8
+ VCC  | <-        | ARDUINO 5v<br/>
+ GND  | <-        | ARDUINO GND<br/>
+
+
+SD CARD Pins:
+
+ Name | Direction | Connected to                       
+ ---- |:---------:|:------------
+ GND  | <-        | ARDUINO GND
+3.3V  | <-        | NC
+  5V  | <-        | ARDUINO 5V
+MOSI  | <-        | ARDUINO #50
+MISO  | ->        | ARDUINO #51
+ SCK  | <-        | ARDUINO #52
+SDCS  | <-        | ARDUINO #53
+
+LED Pins:
+
+ Name | Direction | Connected to                       
+ ---- |:---------:|:------------
+ GND  | <-        | ARDUINO GND
+  5V  | <-        | ARDUINO #19
 
 ## Usage
 Wire up as above, and program the Arduino using the IDE.
