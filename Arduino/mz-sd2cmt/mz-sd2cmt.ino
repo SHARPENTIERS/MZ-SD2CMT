@@ -7,27 +7,35 @@
 #define HAS_LCD16x2 1
 #define HAS_ANALOG_BTNSET 1
 
-#define LEP_UNIT      16     // LEP resolution in µs unit
+#define LEP_UNIT        16     // LEP resolution in µs unit
 
-#define SD0_MO        50     // SD MOSI
-#define SD0_MI        51     // SD MISO
-#define SD0_CK        52     // SD SCK
-#define SD0_SS        53     // SS SS
+#define SD0_MO          50     // SD MOSI
+#define SD0_MI          51     // SD MISO
+#define SD0_CK          52     // SD SCK
+#define SD0_SS          53     // SS SS
 
-#define MZT_DI        15     // MZTape WRITE (WRITE -> DI)
-#define MZT_MI        16     // MZTape MOTOR ON (MOTOR ON -> MI) 
-#define MZT_DO        17     // MZTape READ (DO -> READ)
-#define MZT_CS        18     // MZTape /SENSE (CS -> /SENSE) 
-#define MZT_LO        19     // MZTape LED OUTPUT
+#define MZT_DI          15     // MZTape WRITE (WRITE -> DI)
+#define MZT_MI          16     // MZTape MOTOR ON (MOTOR ON -> MI) 
+#define MZT_DO          17     // MZTape READ (DO -> READ)
+#define MZT_CS          18     // MZTape /SENSE (CS -> /SENSE) 
+#define MZT_LO          19     // MZTape LED OUTPUT
 
-#define DIR_DEPTH     8
-#define SFN_DEPTH     13
-#define LFN_DEPTH     100
+#define DIR_DEPTH       8
+#define SFN_DEPTH       13
+#define LFN_DEPTH       100
 
-#define ENTRY_UNK     0
-#define ENTRY_DIR     1
-#define ENTRY_LEP     2
-#define ENTRY_MZF     3
+#define ENTRY_UNK       0
+#define ENTRY_DIR       1
+#define ENTRY_LEP       2 // WAV-like file with 16us resolution where a byte encodes an edge change after a period
+#define ENTRY_MZF       3 // well-known binary format which includes a 128-byte header block and a data block (MZF/M12).
+#define ENTRY_MZT       4 // may contain more than one 128-byte header and one data block.
+
+#define SPEED_LEGACY    0 // SHARP PWM system (MZ-700/800) 
+#define SPEED_FAST      1
+#define SPEED_TURBOx2   2
+#define SPEED_TURBOx3   3
+#define SPEED_TURBOFAST 4
+#define SPEED_ULTRAFAST 5
 
 char          entry_type = ENTRY_UNK;
 
@@ -211,12 +219,24 @@ int readButtons()
 
 bool checkForLEP(char *filename)
 {
-  return !!strstr(strlwr(filename + (strlen(filename)-4)), ".lep");
+  auto ext = strlwr(filename + (strlen(filename)-4));
+  
+  return !!strstr(ext, ".lep");
 }
 
 bool checkForMZF(char *filename)
 {
-  return !!strstr(strlwr(filename + (strlen(filename)-4)), ".mzf");
+  auto ext = strlwr(filename + (strlen(filename)-4));
+  
+  return !!strstr(ext, ".mzf") ||
+         !!strstr(ext, ".m12");
+}
+
+bool checkForMZT(char *filename)
+{
+  auto ext = strlwr(filename + (strlen(filename)-4));
+  
+  return !!strstr(ext, ".mzt");
 }
 
 void setupDisplay()
@@ -242,7 +262,7 @@ void displayNoSDCard()
 {
 #if HAS_LCD16x2  
   lcd.clear();
-  lcd.print(F("SD2MZCMT: No SD card"));
+  lcd.print(F("MZ-SD2CMT: No SD card"));
 #endif
 }
 
@@ -410,6 +430,10 @@ void fetchEntry(int16_t new_index)
     else if (checkForMZF(lfn))
     {
       entry_type = ENTRY_MZF;
+    }
+    else if (checkForMZT(lfn))
+    {
+      entry_type = ENTRY_MZT;
     }
     else
     {
@@ -678,33 +702,18 @@ void playLEP()
       digitalWrite(MZT_LO, led);
     }
   }
-  digitalWrite(MZT_LO, 0); // it's over, no more led.
+  digitalWrite(MZT_LO, LOW); // it's over, no more led.
   digitalWrite(MZT_CS, HIGH); // reset the /SENSE signal to 1
   digitalWrite(MZT_DO, HIGH);
 }
 
-// SCK = /SENSE ---> MZ inputs  MOTOR (PC4), MOTOR = not /SENSE
-// SDI = READ   ---> MZ inputs  READ  (PC5) 
-// SDO = WRITE  ---> MZ outputs WRITE (PC1)
-
-void sendMZFByte(unsigned char c)
+void playMZF()
 {
-  // TODO    
-  for (int i = 0; i < 8; ++i)
-  {   
-    unsigned long us = micros();
-
-    bool level = (c & (1 << i)) ? HIGH : LOW;
-    digitalWrite(MZT_DO, level);                // set SDI to level 
-    digitalWrite(MZT_CS, (i & 1) ? HIGH : LOW); // toggle SCK to acknowledge MZ
-    digitalWrite(MZT_LO, level);
-    
-    while(micros() < us + 16);
-  }
+  
 }
 
-/// This function plays a MZF file.
-void playMZF()
+/// This function plays a MZF file in legacy mode.
+void playMZF_Legacy()
 {
   unsigned long   total = entry.fileSize();
   unsigned char   data;
@@ -776,6 +785,99 @@ void playMZF()
   }
 }
 
+// SCK = /SENSE ---> MZ inputs  MOTOR (PC4), MOTOR = not /SENSE
+// SDI = READ   ---> MZ inputs  READ  (PC5) 
+// SDO = WRITE  ---> MZ outputs WRITE (PC1)
+
+void sendMZFByte_UltraFast(unsigned char c)
+{
+  // TODO    
+  for (int i = 0; i < 8; ++i)
+  {   
+    unsigned long us = micros();
+
+    bool level = (c & (1 << i)) ? HIGH : LOW;
+    digitalWrite(MZT_DO, level);                // set SDI to level 
+    digitalWrite(MZT_CS, (i & 1) ? HIGH : LOW); // toggle SCK to acknowledge MZ
+    digitalWrite(MZT_LO, level);
+    
+    while(micros() < us + 16);
+  }
+}
+
+/// This function plays a MZF file.
+void playMZF_UltraFast()
+{
+  unsigned long   total = entry.fileSize();
+  unsigned char   data;
+  unsigned long   size = 0;
+  unsigned short  load = 0;
+  unsigned short  exec = 0;
+  unsigned long   count;
+  unsigned long   old_progress = -1;
+  unsigned long   new_progress = 0;
+  bool            led = LOW;
+
+  canceled = false;
+
+  data = entry.read(); /* 0x10F0: file attribute */
+
+  if (data == 1 && total >= 128) // On ne lit que les fichiers de type EXECUTABLE BINAIRE
+  {
+    for (int i = 0x10F1; i < 0x1102; ++i) entry.read(); // skip file name
+
+    size  = (/* 0x1102 */entry.read() & 255) << 0;   
+    size += (/* 0x1103 */entry.read() & 255) << 8;
+
+    load  = (/* 0x1104 */entry.read() & 255) << 0;
+    load += (/* 0x1105 */entry.read() & 255) << 8;
+    
+    exec  = (/* 0x1106 */entry.read() & 255) << 0;
+    exec += (/* 0x1107 */entry.read() & 255) << 8;
+    
+    for (int i = 0x1108; i < 0x1170; ++i) entry.read(); // skip the header
+
+    sendMZFByte_UltraFast((size >> 0) & 255);
+    sendMZFByte_UltraFast((size >> 8) & 255);
+    sendMZFByte_UltraFast((exec >> 0) & 255);
+    sendMZFByte_UltraFast((exec >> 8) & 255);
+    sendMZFByte_UltraFast((load >> 0) & 255);
+    sendMZFByte_UltraFast((load >> 8) & 255);
+
+    count = 0;
+
+    if (total - 128 == size)
+    {
+      while (count != size)
+      {        
+        data = entry.read();
+        ++count;
+  
+        new_progress = (5 * 4 * count) / size;
+        if (old_progress != new_progress)
+        {
+          displayProgressBar(new_progress);
+
+          old_progress = new_progress;
+        }
+  
+        sendMZFByte_UltraFast(data);    
+      }
+    }
+    else
+    {
+      canceled = true;
+    }
+
+    digitalWrite(MZT_LO, LOW);
+    digitalWrite(MZT_CS, HIGH);
+  }
+  else
+  {
+    canceled = true;
+  }
+}
+
 void setup()
 {
   Serial.begin(9600);
@@ -806,7 +908,7 @@ void setup()
 
 void loop()
 {
-  Serial.println("SD2MZCMT");
+  Serial.println("MZ-SD2CMT");
 
   enterDir();
   
