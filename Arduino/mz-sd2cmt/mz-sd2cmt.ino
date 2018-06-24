@@ -39,7 +39,7 @@ SdFat         sd;
 SdFile        entry;
 SdFile        dir[DIR_DEPTH];
 char          sfn[SFN_DEPTH];
-char          lfn[LFN_DEPTH+1];
+char          lfn[LFN_DEPTH + 1];
 bool          sd_ready = false;
 int16_t       entry_index = 0;
 int8_t        dir_depth = -1;
@@ -63,86 +63,86 @@ char          header_buffer[129];
 
 byte icon[8][8] =
 {
-  {
-    B10000,
-    B10000,
-    B10000,
-    B10000,
-    B10000,
-    B10000,
-    B10000,
-    B10000
-  },
-  {
-    B11000,
-    B11000,
-    B11000,
-    B11000,
-    B11000,
-    B11000,
-    B11000,
-    B11000
-  },
-  {
-    B11100,
-    B11100,
-    B11100,
-    B11100,
-    B11100,
-    B11100,
-    B11100,
-    B11100
-  },
-  {
-    B11110,
-    B11110,
-    B11110,
-    B11110,
-    B11110,
-    B11110,
-    B11110,
-    B11110
-  },
-  {
-    B11111,
-    B11111,
-    B11111,
-    B11111,
-    B11111,
-    B11111,
-    B11111,
-    B11111
-  },
-  {
-    B11100,
-    B10011,
-    B11101,
-    B10001,
-    B10001,
-    B10001,
-    B10001,
-    B11111
-  },
-  {
-    B00111,
-    B00100,
-    B00100,
-    B01110,
-    B10101,
-    B00100,
-    B00100,
-    B11100
-  },
-  {
-    B10001,
-    B11011,
-    B10101,
-    B10001,
-    B11111,
-    B00100,
-    B01000,
-    B11111
-  }
+	{
+		B10000,
+		B10000,
+		B10000,
+		B10000,
+		B10000,
+		B10000,
+		B10000,
+		B10000
+	},
+	{
+		B11000,
+		B11000,
+		B11000,
+		B11000,
+		B11000,
+		B11000,
+		B11000,
+		B11000
+	},
+	{
+		B11100,
+		B11100,
+		B11100,
+		B11100,
+		B11100,
+		B11100,
+		B11100,
+		B11100
+	},
+	{
+		B11110,
+		B11110,
+		B11110,
+		B11110,
+		B11110,
+		B11110,
+		B11110,
+		B11110
+	},
+	{
+		B11111,
+		B11111,
+		B11111,
+		B11111,
+		B11111,
+		B11111,
+		B11111,
+		B11111
+	},
+	{
+		B11100,
+		B10011,
+		B11101,
+		B10001,
+		B10001,
+		B10001,
+		B10001,
+		B11111
+	},
+	{
+		B00111,
+		B00100,
+		B00100,
+		B01110,
+		B10101,
+		B00100,
+		B00100,
+		B11100
+	},
+	{
+		B10001,
+		B11011,
+		B10101,
+		B10001,
+		B11111,
+		B00100,
+		B01000,
+		B11111
+	}
 };
 
 LiquidCrystal lcd(LCD_RS, LCD_EN, LCD_D4, LCD_D5, LCD_D6, LCD_D7);
@@ -152,30 +152,30 @@ unsigned long scroll_time = millis() + SCROLL_WAIT;
 /// This function displays a text on the first line with a horizontal scrolling if necessary.
 void scrollText(char* text)
 {
-  if (scroll_pos < 0)
-  {
-    scroll_pos = 0;
-  }
-  char outtext[17];
-  outtext[0] = entry_type ? (entry_type + 4) : '?'; 
-  for (int i = 1; i < 16; ++i)
-  {
-    int p = i + scroll_pos - 1;
-    if (p < strlen(text)) 
-    {
-      outtext[i] = text[p];
-    }
-    else
-    {
-      outtext[i] = '\0';
-    }
-  }
-  outtext[16] = '\0';
+	if (scroll_pos < 0)
+	{
+		scroll_pos = 0;
+	}
+	char outtext[17];
+	outtext[0] = entry_type ? (entry_type + 4) : '?';
+	for (int i = 1; i < 16; ++i)
+	{
+		int p = i + scroll_pos - 1;
+		if (p < strlen(text))
+		{
+			outtext[i] = text[p];
+		}
+		else
+		{
+			outtext[i] = '\0';
+		}
+	}
+	outtext[16] = '\0';
 
-  lcd.setCursor(0,0);
-  lcd.print(F("                    "));
-  lcd.setCursor(0,0);
-  lcd.print(outtext);
+	lcd.setCursor(0, 0);
+	lcd.print(F("                    "));
+	lcd.setCursor(0, 0);
+	lcd.print(outtext);
 }
 #endif
 
@@ -193,174 +193,174 @@ bool          btn_pressed = false;
 int readButtons()
 {
 #if HAS_ANALOG_BTNSET
-  int adc_key = analogRead(0);
+	int adc_key = analogRead(0);
 
-  if (adc_key < 380)
-  {
-    if (adc_key < 50)
-      return BTN_R;
-    else
-      return (adc_key < 195) ? BTN_U : BTN_D;
-  }
-  else
-  {
-    if (adc_key <  555)
-      return BTN_L;
-    else
-      return (adc_key < 790) ? BTN_S : BTN_N;
-  }
+	if (adc_key < 380)
+	{
+		if (adc_key < 50)
+			return BTN_R;
+		else
+			return (adc_key < 195) ? BTN_U : BTN_D;
+	}
+	else
+	{
+		if (adc_key < 555)
+			return BTN_L;
+		else
+			return (adc_key < 790) ? BTN_S : BTN_N;
+	}
 #else
-  return BTN_N;
+	return BTN_N;
 #endif
 }
 
 bool checkForLEP(char *filename)
 {
-  auto ext = strlwr(filename + (strlen(filename)-4));
-  
-  return !!strstr(ext, ".lep");
+	auto ext = strlwr(filename + (strlen(filename) - 4));
+
+	return !!strstr(ext, ".lep");
 }
 
 bool checkForMZF(char *filename)
 {
-  auto ext = strlwr(filename + (strlen(filename)-4));
-  
-  return !!strstr(ext, ".mzf") ||
-         !!strstr(ext, ".m12");
+	auto ext = strlwr(filename + (strlen(filename) - 4));
+
+	return !!strstr(ext, ".mzf") ||
+		!!strstr(ext, ".m12");
 }
 
 bool checkForMZT(char *filename)
 {
-  auto ext = strlwr(filename + (strlen(filename)-4));
-  
-  return !!strstr(ext, ".mzt");
+	auto ext = strlwr(filename + (strlen(filename) - 4));
+
+	return !!strstr(ext, ".mzt");
 }
 
 void setupDisplay()
 {
 #if HAS_LCD16x2  
-  lcd.begin(16, 2);
-  
-  lcd.createChar(0, icon[0]);
-  lcd.createChar(1, icon[1]);
-  lcd.createChar(2, icon[2]);
-  lcd.createChar(3, icon[3]);
-  lcd.createChar(4, icon[4]);
-  lcd.createChar(5, icon[5]);
-  lcd.createChar(6, icon[6]);
-  lcd.createChar(7, icon[7]);
-  lcd.clear();
-  
-  lcd.print(F("SD2MZCMT"));
+	lcd.begin(16, 2);
+
+	lcd.createChar(0, icon[0]);
+	lcd.createChar(1, icon[1]);
+	lcd.createChar(2, icon[2]);
+	lcd.createChar(3, icon[3]);
+	lcd.createChar(4, icon[4]);
+	lcd.createChar(5, icon[5]);
+	lcd.createChar(6, icon[6]);
+	lcd.createChar(7, icon[7]);
+	lcd.clear();
+
+	lcd.print(F("SD2MZCMT"));
 #endif
 }
 
 void displayNoSDCard()
 {
 #if HAS_LCD16x2  
-  lcd.clear();
-  lcd.print(F("MZ-SD2CMT: No SD card"));
+	lcd.clear();
+	lcd.print(F("MZ-SD2CMT: No SD card"));
 #endif
 }
 
 inline void displayEntryNameMessage(bool exists)
 {
 #if HAS_LCD16x2  
-  scroll_time = millis() + SCROLL_WAIT;
-  scroll_pos = 0;
+	scroll_time = millis() + SCROLL_WAIT;
+	scroll_pos = 0;
 
-  scrollText(lfn);
+	scrollText(lfn);
 #endif
 
-  if (exists)
-  {
-    entry.printFileSize(&Serial);
-    Serial.write(' ');
-    entry.printModifyDateTime(&Serial);
-    Serial.write(' ');
-    entry.printName(&Serial);
-    if (entry.isDir())
-    {
-      Serial.write('/');
-    }
-    Serial.println();
-  }
-  else
-  { 
-    Serial.println(F("Error: fetchEntry - no file/directory!"));
-  } 
+	if (exists)
+	{
+		entry.printFileSize(&Serial);
+		Serial.write(' ');
+		entry.printModifyDateTime(&Serial);
+		Serial.write(' ');
+		entry.printName(&Serial);
+		if (entry.isDir())
+		{
+			Serial.write('/');
+		}
+		Serial.println();
+	}
+	else
+	{
+		Serial.println(F("Error: fetchEntry - no file/directory!"));
+	}
 }
 
 inline void displayScrollingMessage()
 {
 #if HAS_LCD16x2  
-  if ((millis() >= scroll_time) && (strlen(lfn)>15))
-  {
-    scroll_time = millis() + SCROLL_SPEED;
-    scrollText(lfn);
-    ++scroll_pos;
-    if (scroll_pos > strlen(lfn))
-    {
-      scroll_pos = 0;
-      scroll_time = millis() + SCROLL_WAIT;
-      scrollText(lfn);
-    }
-  }
+	if ((millis() >= scroll_time) && (strlen(lfn) > 15))
+	{
+		scroll_time = millis() + SCROLL_SPEED;
+		scrollText(lfn);
+		++scroll_pos;
+		if (scroll_pos > strlen(lfn))
+		{
+			scroll_pos = 0;
+			scroll_time = millis() + SCROLL_WAIT;
+			scrollText(lfn);
+		}
+	}
 #endif
 }
 
 inline void displayStartPlayingMessage()
 {
 #if HAS_LCD16x2  
-  lcd.clear();
-  scroll_pos = 0;
-  scrollText(lfn);
-  lcd.setCursor(0, 1);
-  lcd.print(F("Playing...[    ]"));
+	lcd.clear();
+	scroll_pos = 0;
+	scrollText(lfn);
+	lcd.setCursor(0, 1);
+	lcd.print(F("Playing...[    ]"));
 #endif
-}      
+}
 
 inline void displayResumePlayingMessage()
 {
 #if HAS_LCD16x2  
-  lcd.setCursor(0, 1);
-  lcd.write(F("Play"));
+	lcd.setCursor(0, 1);
+	lcd.write(F("Play"));
 #endif
-}      
+}
 
-inline void displayStopPlayingMessage(unsigned long elapsed_time) 
+inline void displayStopPlayingMessage(unsigned long elapsed_time)
 {
 #if HAS_LCD16x2  
-  auto duration = (elapsed_time + 999) / 1000; 
-  lcd.setCursor(0, 1);
-  if (canceled)
-  {
-    lcd.print(F("Canceled in "));
-    lcd.print(duration);
-    lcd.print(F("s.  "));
-  }
-  else
-  {
-    lcd.print(F("Done in "));
-    lcd.print(duration);
-    lcd.print(F("s.      "));
-  }
+	auto duration = (elapsed_time + 999) / 1000;
+	lcd.setCursor(0, 1);
+	if (canceled)
+	{
+		lcd.print(F("Canceled in "));
+		lcd.print(duration);
+		lcd.print(F("s.  "));
+	}
+	else
+	{
+		lcd.print(F("Done in "));
+		lcd.print(duration);
+		lcd.print(F("s.      "));
+	}
 #endif
 }
 
 inline void displayPausingMessage()
 {
 #if HAS_LCD16x2  
-  lcd.setCursor(0, 1);
-  lcd.write(F("Paus"));
+	lcd.setCursor(0, 1);
+	lcd.write(F("Paus"));
 #endif
-}      
+}
 
 inline void displayProgressBar(unsigned long new_progress)
 {
 #if HAS_LCD16x2  
-  lcd.setCursor(11 + (new_progress / 5) , 1);
-  lcd.write(new_progress % 5);
+	lcd.setCursor(11 + (new_progress / 5), 1);
+	lcd.write(new_progress % 5);
 #endif
 }
 
@@ -368,346 +368,346 @@ inline void displayProgressBar(unsigned long new_progress)
 /// @arg int16_t new_index index of a valid entry in the directory.
 void fetchEntry(int16_t new_index)
 {
-  bool    found = true;
-  int16_t index;
-      
-  entry.close();
+	bool    found = true;
+	int16_t index;
 
-  if (new_index < 0)
-  {
-    new_index = 0;
-  }
+	entry.close();
 
-  do
-  {
-    dir[dir_depth].rewind();
-    index = 0;
+	if (new_index < 0)
+	{
+		new_index = 0;
+	}
 
-    while (index <= new_index)
-    {
-      found = entry.openNext(&dir[dir_depth], O_READ);
-      if (found)
-      {
-        if (!entry.isHidden() && !entry.isSystem())
-        {
-          if (index == new_index)
-          {
-            break;
-          }
-          ++index;        
-        }
-        entry.close();
-      }
-      else
-      {
-        break;
-      }
-    }
+	do
+	{
+		dir[dir_depth].rewind();
+		index = 0;
 
-    if (!found)
-    {
-      new_index = entry_index;
-    }
-  }
-  while (!found && index > 0);
+		while (index <= new_index)
+		{
+			found = entry.openNext(&dir[dir_depth], O_READ);
+			if (found)
+			{
+				if (!entry.isHidden() && !entry.isSystem())
+				{
+					if (index == new_index)
+					{
+						break;
+					}
+					++index;
+				}
+				entry.close();
+			}
+			else
+			{
+				break;
+			}
+		}
 
-  if (found)
-  {
-    entry.getSFN(sfn);
-    entry.getName(lfn, LFN_DEPTH);
+		if (!found)
+		{
+			new_index = entry_index;
+		}
+	}
+	while (!found && index > 0);
 
-    /**/ if (entry.isDir())
-    {
-      entry_type = ENTRY_DIR;
-    }
-    else if (checkForLEP(lfn))
-    {
-      entry_type = ENTRY_LEP;
-    }
-    else if (checkForMZF(lfn))
-    {
-      entry_type = ENTRY_MZF;
-    }
-    else if (checkForMZT(lfn))
-    {
-      entry_type = ENTRY_MZT;
-    }
-    else
-    {
-      entry_type = ENTRY_UNK;
-    }
+	if (found)
+	{
+		entry.getSFN(sfn);
+		entry.getName(lfn, LFN_DEPTH);
 
-    displayEntryNameMessage(true);
-    
-    entry_index = new_index;
-  }
-  else
-  {
-    memset(sfn, 0, SFN_DEPTH);
-    memset(lfn, 0, LFN_DEPTH + 1);
-    strcpy(lfn, "<no file>");
-    
-    displayEntryNameMessage(false);
-  }
+		/**/ if (entry.isDir())
+		{
+			entry_type = ENTRY_DIR;
+		}
+		else if (checkForLEP(lfn))
+		{
+			entry_type = ENTRY_LEP;
+		}
+		else if (checkForMZF(lfn))
+		{
+			entry_type = ENTRY_MZF;
+		}
+		else if (checkForMZT(lfn))
+		{
+			entry_type = ENTRY_MZT;
+		}
+		else
+		{
+			entry_type = ENTRY_UNK;
+		}
+
+		displayEntryNameMessage(true);
+
+		entry_index = new_index;
+	}
+	else
+	{
+		memset(sfn, 0, SFN_DEPTH);
+		memset(lfn, 0, LFN_DEPTH + 1);
+		strcpy(lfn, "<no file>");
+
+		displayEntryNameMessage(false);
+	}
 }
 
 /// This function enters a directory.
 void enterDir()
 {
-  if (dir_depth < DIR_DEPTH - 2)
-  {
-    if (dir_depth < 0)
-    {
-      if (dir[0].openRoot(&sd))
-      {
-        ++dir_depth;
+	if (dir_depth < DIR_DEPTH - 2)
+	{
+		if (dir_depth < 0)
+		{
+			if (dir[0].openRoot(&sd))
+			{
+				++dir_depth;
 
-        fetchEntry(0);
-      }
-      else
-      {
-        Serial.println(F("Error: enterDir - cannot open root directory!"));
-      }      
-    }
-    else if (entry.isOpen())
-    {
-      ++dir_depth;
-      
-      dir[dir_depth] = entry;
-      dir_index[dir_depth] = entry_index;
+				fetchEntry(0);
+			}
+			else
+			{
+				Serial.println(F("Error: enterDir - cannot open root directory!"));
+			}
+		}
+		else if (entry.isOpen())
+		{
+			++dir_depth;
 
-      fetchEntry(0);                  
-    }
-    else
-    {
-        Serial.println(F("Error: enterDir - no subdirectory!"));
-    }
-  }
-  else
-  {
-    Serial.println(F("Error: enterDir - directory depth exceeded!"));
-  }  
+			dir[dir_depth] = entry;
+			dir_index[dir_depth] = entry_index;
+
+			fetchEntry(0);
+		}
+		else
+		{
+			Serial.println(F("Error: enterDir - no subdirectory!"));
+		}
+	}
+	else
+	{
+		Serial.println(F("Error: enterDir - directory depth exceeded!"));
+	}
 }
 
 /// This function leaves a subdirectory.
 void leaveDir()
 {
-  // leave only subdirectory
-  if (dir_depth > 0)
-  {
-    dir[dir_depth].close();
+	// leave only subdirectory
+	if (dir_depth > 0)
+	{
+		dir[dir_depth].close();
 
-    entry_index = dir_index[dir_depth];
+		entry_index = dir_index[dir_depth];
 
-    --dir_depth;
+		--dir_depth;
 
-    fetchEntry(entry_index);
-  }
+		fetchEntry(entry_index);
+	}
 }
-  
+
 /// This function handles the case where LEFT button is pressed.
 void leftPressed()
 {
-  if (!btn_pressed)
-  {   
-    leaveDir();
-    
-    btn_pressed = true;
-  }  
+	if (!btn_pressed)
+	{
+		leaveDir();
+
+		btn_pressed = true;
+	}
 }
 
 /// This function handles the case where RIGHT button is pressed.
 void rightPressed()
 {
-  if (!btn_pressed)
-  {
-    btn_pressed = true;
-  }
+	if (!btn_pressed)
+	{
+		btn_pressed = true;
+	}
 }
 
 /// This function handles the case where UP button is pressed.
 void upPressed()
 {
-  if (!btn_pressed)
-  {
-    fetchEntry(entry_index - 1);
-    
-    btn_pressed = true;
-  }
+	if (!btn_pressed)
+	{
+		fetchEntry(entry_index - 1);
+
+		btn_pressed = true;
+	}
 }
 
 /// This function handles the case where DOWN button is pressed.
 void downPressed()
 {
-  if (!btn_pressed)
-  {
-    fetchEntry(entry_index + 1);
-    
-    btn_pressed = true;
-  }
+	if (!btn_pressed)
+	{
+		fetchEntry(entry_index + 1);
+
+		btn_pressed = true;
+	}
 }
 
 /// This function handles the case where SELECT button is pressed.
 void selectPressed()
 {
-  if (!btn_pressed)
-  {
-    switch (entry_type)
-    {
-      case ENTRY_DIR:
-        {
-          enterDir();
-        }
-        break;
-      
-      case ENTRY_LEP:
-      case ENTRY_MZF:
-        {
-          displayStartPlayingMessage();
+	if (!btn_pressed)
+	{
+		switch (entry_type)
+		{
+		case ENTRY_DIR:
+		{
+			enterDir();
+		}
+		break;
 
-          entry.rewind();
-          
-          unsigned long start_time = millis();
+		case ENTRY_LEP:
+		case ENTRY_MZF:
+		{
+			displayStartPlayingMessage();
 
-          if (entry_type == ENTRY_LEP)
-            playLEP();
-          else
-            playMZF();
-      
-          unsigned long stop_time = millis();
+			entry.rewind();
 
-          displayStopPlayingMessage(stop_time - start_time);
-        }
-        break;
+			unsigned long start_time = millis();
 
-      default:
-        break;
-    }
-    
-    btn_pressed = true;
-  }
+			if (entry_type == ENTRY_LEP)
+				playLEP();
+			else
+				playMZF();
+
+			unsigned long stop_time = millis();
+
+			displayStopPlayingMessage(stop_time - start_time);
+		}
+		break;
+
+		default:
+			break;
+		}
+
+		btn_pressed = true;
+	}
 }
 
 /// This function handles the case where a button is released.
 void nonePressed()
 {
-  if (btn_pressed)
-  {
-    btn_pressed = false;
-  }  
+	if (btn_pressed)
+	{
+		btn_pressed = false;
+	}
 }
 
 /// This function plays a LEP file.
 void playLEP()
 {
-  unsigned long period;                   // half-pulse period
-  unsigned long delta;                    // maximum time to spend before moving to the next half-pulse
-  unsigned long last_edge;                // elapsed time since the last rising / falling edge
-  bool          level = HIGH;             // level of the DATA IN signal at the output of the CMT
-  bool          led = LOW;                // led indicating the frequency of reading data
-  char          data, next = 0;           // LEP bytes read from the SD
-  unsigned long count = 0;                // number of LEP bytes read progressively
-  unsigned long led_period = 0;           // blinking period for 512 bytes LEP read
-  unsigned long total = entry.fileSize(); // total number of LEP bytes to read
-  unsigned long old_progress = -1;
-  unsigned long new_progress = 0;
+	unsigned long period;                   // half-pulse period
+	unsigned long delta;                    // maximum time to spend before moving to the next half-pulse
+	unsigned long last_edge;                // elapsed time since the last rising / falling edge
+	bool          level = HIGH;             // level of the DATA IN signal at the output of the CMT
+	bool          led = LOW;                // led indicating the frequency of reading data
+	char          data, next = 0;           // LEP bytes read from the SD
+	unsigned long count = 0;                // number of LEP bytes read progressively
+	unsigned long led_period = 0;           // blinking period for 512 bytes LEP read
+	unsigned long total = entry.fileSize(); // total number of LEP bytes to read
+	unsigned long old_progress = -1;
+	unsigned long new_progress = 0;
 
-  canceled = false;
+	canceled = false;
 
-  digitalWrite(MZT_DO, level); // DATA IN signal to 1 initially
-  digitalWrite(MZT_LO, led); // led light off initially
+	digitalWrite(MZT_DO, level); // DATA IN signal to 1 initially
+	digitalWrite(MZT_LO, led); // led light off initially
 
-  digitalWrite(MZT_CS, LOW); // signal /SENSE at 0 to acknowledge the MZ that data is ready
+	digitalWrite(MZT_CS, LOW); // signal /SENSE at 0 to acknowledge the MZ that data is ready
 
-  last_edge = micros(); // initial elapsed time
-  delta = 125000 * LEP_UNIT; // foolish MONITOR MOTOR call which waits for 2s
-            
-  while (count < total) // read all the LEP bytes from the file
-  {
-    if (digitalRead(MZT_MI) == LOW) // MOTOR at 0, pause
-    {
-      digitalWrite(MZT_DO, HIGH); // DAT IN signal at 1
-      digitalWrite(MZT_LO, LOW); // LED off
+	last_edge = micros(); // initial elapsed time
+	delta = 125000 * LEP_UNIT; // foolish MONITOR MOTOR call which waits for 2s
 
-      displayPausingMessage();
+	while (count < total) // read all the LEP bytes from the file
+	{
+		if (digitalRead(MZT_MI) == LOW) // MOTOR at 0, pause
+		{
+			digitalWrite(MZT_DO, HIGH); // DAT IN signal at 1
+			digitalWrite(MZT_LO, LOW); // LED off
 
-      while (digitalRead(MZT_MI) == LOW) // as long as MOTOR does not resume
-      {
-        if (Serial.available() || readButtons() == BTN_S) // but if you ask to cancel
-        {
-          canceled = true;
-          digitalWrite(MZT_CS, HIGH);  // the signal /SENSE reset to 1
-          return; // leave totally
-        }
-      }
-      
-      displayResumePlayingMessage();
-           
-      last_edge = micros(); // reset
-      delta = 125000 * LEP_UNIT; // foolish MONITOR MOTOR call which waits for 2s
-    }
+			displayPausingMessage();
 
-    if (next) // the following LEP byte is immediately available
-    {
-      data = next; // take it
-      next = 0;
-      ++count;
-    }
-    else
-    {
-      data = entry.read(); // otherwise we read it from the SD
-      ++count;
+			while (digitalRead(MZT_MI) == LOW) // as long as MOTOR does not resume
+			{
+				if (Serial.available() || readButtons() == BTN_S) // but if you ask to cancel
+				{
+					canceled = true;
+					digitalWrite(MZT_CS, HIGH);  // the signal /SENSE reset to 1
+					return; // leave totally
+				}
+			}
 
-      if (data < 0) // if the new LEP byte is a falling edge
-      {
-        if (count < total)
-        {
-          next = entry.read(); // read in advance the following LEP byte
+			displayResumePlayingMessage();
 
-          new_progress = (5 * 4 * count) / total;
-          if (old_progress != new_progress)
-          {
-            displayProgressBar(new_progress);
+			last_edge = micros(); // reset
+			delta = 125000 * LEP_UNIT; // foolish MONITOR MOTOR call which waits for 2s
+		}
 
-            old_progress = new_progress;
-          }
-        }
-      }
-    }
+		if (next) // the following LEP byte is immediately available
+		{
+			data = next; // take it
+			next = 0;
+			++count;
+		}
+		else
+		{
+			data = entry.read(); // otherwise we read it from the SD
+			++count;
 
-    /**/ if (data == 0) period = 127;   // very long period ...
-    else if (data <  0) period = -data; // in absolute value
-    else                period = +data; // in absolute value
+			if (data < 0) // if the new LEP byte is a falling edge
+			{
+				if (count < total)
+				{
+					next = entry.read(); // read in advance the following LEP byte
 
-    period *= LEP_UNIT; // converts to microseconds
-    
-    /**/ if (data > 0) level = HIGH; // if positive LEP byte, next half-pulse at 1
-    else if (data < 0) level = LOW;  // if negative LEP byte, next half-pulse at 0
-    
-    while (micros() - last_edge < delta); // we pause in the desired period
-    
-    digitalWrite(MZT_DO, level); // and we update the level output DATA IN
-    
-    last_edge = micros(); // update the time reference for the period
-    delta = period; // and the next period
+					new_progress = (5 * 4 * count) / total;
+					if (old_progress != new_progress)
+					{
+						displayProgressBar(new_progress);
 
-    ++led_period;
-    
-    if (led_period & 512) // the control led is alternated every 512 LEP bytes processed
-    {
-      led = !led; // toggle the signal level of the LED indicator
-      digitalWrite(MZT_LO, led);
-    }
-  }
-  digitalWrite(MZT_LO, LOW); // it's over, no more led.
-  digitalWrite(MZT_CS, HIGH); // reset the /SENSE signal to 1
-  digitalWrite(MZT_DO, HIGH);
+						old_progress = new_progress;
+					}
+				}
+			}
+		}
+
+		/**/ if (data == 0) period = 127;   // very long period ...
+		else if (data <  0) period = -data; // in absolute value
+		else                period = +data; // in absolute value
+
+		period *= LEP_UNIT; // converts to microseconds
+
+		/**/ if (data > 0) level = HIGH; // if positive LEP byte, next half-pulse at 1
+		else if (data < 0) level = LOW;  // if negative LEP byte, next half-pulse at 0
+
+		while (micros() - last_edge < delta); // we pause in the desired period
+
+		digitalWrite(MZT_DO, level); // and we update the level output DATA IN
+
+		last_edge = micros(); // update the time reference for the period
+		delta = period; // and the next period
+
+		++led_period;
+
+		if (led_period & 512) // the control led is alternated every 512 LEP bytes processed
+		{
+			led = !led; // toggle the signal level of the LED indicator
+			digitalWrite(MZT_LO, led);
+		}
+	}
+	digitalWrite(MZT_LO, LOW); // it's over, no more led.
+	digitalWrite(MZT_CS, HIGH); // reset the /SENSE signal to 1
+	digitalWrite(MZT_DO, HIGH);
 }
 
 void playMZF()
 {
-  //playMZF_Legacy_Procedural();
-  playMZF_Legacy_MachineState();
+	playMZF_Legacy_Procedural();
+	//playMZF_Legacy_MachineState();
 }
 
 //////////////////////////////////////////////////////////////////////
@@ -719,148 +719,191 @@ static const unsigned long lp0 = 958 - lp1; // long period for signal 0
 
 void sendBit(unsigned long p1, unsigned long p0)
 {
-  unsigned long time_point = micros();
-  p0 += p1; 
-  digitalWrite(MZT_DO, HIGH);
-  while (micros() < time_point + p1);
-  digitalWrite(MZT_DO, LOW);
-  while (micros() < time_point + p0);
+	unsigned long time_point = micros();
+	p0 += p1;
+	digitalWrite(MZT_DO, HIGH);
+	while (micros() < time_point + p1);
+	digitalWrite(MZT_DO, LOW);
+	while (micros() < time_point + p0);
 }
 
 void sendGap(unsigned short loop)
 {
-  while (loop--)
-  {
-    sendBit(sp1, sp0);  
-  }
+	while (loop--)
+	{
+		sendBit(sp1, sp0);
+	}
 }
 
 void sendTapeMark(unsigned char loop)
 {
-  for (auto i = loop; i; --i)
-  {
-    sendBit(lp1, lp0);  
-  }
-  for (auto i = loop; i; --i)
-  {
-    sendBit(sp1, sp0);  
-  }
-  sendBit(lp1, lp0);  
+	for (auto i = loop; i; --i)
+	{
+		sendBit(lp1, lp0);
+	}
+	for (auto i = loop; i; --i)
+	{
+		sendBit(sp1, sp0);
+	}
+	sendBit(lp1, lp0);
 }
 
 unsigned short sendByte(char value)
 {
-  unsigned short checksum = 0;
-  sendBit(lp1, lp0);
-  for (char i = 8; i; --i)
-  {
-    if (value & 0x80)
-    {
-      sendBit(lp1, lp0);
-      ++checksum;
-    }
-    else
-    {
-      sendBit(sp1, sp0);
-    }
-    value <<= 1;
-  }
-  return checksum;
+	unsigned short checksum = 0;
+	sendBit(lp1, lp0);
+	for (char i = 8; i; --i)
+	{
+		if (value & 0x80)
+		{
+			sendBit(lp1, lp0);
+			++checksum;
+		}
+		else
+		{
+			sendBit(sp1, sp0);
+		}
+		value <<= 1;
+	}
+	return checksum;
 }
 
 void sendChecksum(unsigned short checksum)
 {
-  for (char j = 2; j; --j)
-  {
-    sendBit(lp1, lp0);
-    for (char i = 8; i; --i)
-    {
-      if (checksum & 0x8000)
-      {
-        sendBit(lp1, lp0);
-      }
-      else
-      {
-        sendBit(sp1, sp0);
-      }
-      checksum <<= 1;
-    }
-  }
+	for (char j = 2; j; --j)
+	{
+		sendBit(lp1, lp0);
+		for (char i = 8; i; --i)
+		{
+			if (checksum & 0x8000)
+			{
+				sendBit(lp1, lp0);
+			}
+			else
+			{
+				sendBit(sp1, sp0);
+			}
+			checksum <<= 1;
+		}
+	}
 
-  sendBit(lp1, lp0);
-  //sendBit(lp1, lp0);
+	sendBit(lp1, lp0);
+	sendBit(lp1, lp0);
 }
 
 void playMZF_Legacy_Procedural()
-{ 
-  unsigned long  total = entry.fileSize(); // total number of LEP bytes to read
-  unsigned short checksum;
+{
+	unsigned long  total = entry.fileSize(); // total number of LEP bytes to read
+	unsigned short checksum;
 
-  canceled = false;
-  
-  if (total > 128)
-  {
-    if (entry.read(header_buffer, 128) != 128)
-    {
-      canceled = true;
-      return;
-    }
-    else
-    {
-      total = (((unsigned long)header_buffer[0x12]) & 255) +
-              (((unsigned long)header_buffer[0x13]) & 255) * 256;
+	canceled = false;
 
-      Serial.print("Program size: ");
-      Serial.println(total);
-    }
-    if (entry.available() < total)
-    {
-      canceled = true;
-      return;
-    }
-  }
+	if (total > 128)
+	{
+		total -= 128;
+		if (entry.read(header_buffer, 128) != 128)
+		{
+			canceled = true;
+			return;
+		}
+		else
+		{
+			total =
+				(((unsigned long)header_buffer[0x12]) & 255) +
+				(((unsigned long)header_buffer[0x13]) & 255) * 256;
 
-  digitalWrite(MZT_LO, LOW); // led light off initially
+			Serial.print("Program size: ");
+			Serial.println(total);
+		}
+		if (entry.available() < total)
+		{
+			canceled = true;
+			return;
+		}
 
-  digitalWrite(MZT_DO, LOW); // DATA IN signal to 0 initially
-  digitalWrite(MZT_CS, LOW); // signal /SENSE at 0 to acknowledge the MZ that data is ready
+		unsigned long size =
+			total;
 
-  // HEADER
-  
-  delay(2000);
+		unsigned long addr =
+			(((unsigned long)header_buffer[0x14]) & 255) +
+			(((unsigned long)header_buffer[0x15]) & 255) * 256;
 
-  sendGap(100);
-  
-  sendTapeMark(40);
 
-  checksum = 0;
-   
-  for (auto i = 0u; i < 128u; ++i)
-  {
-    checksum += sendByte(header_buffer[i]); 
-  }
+		unsigned long exec =
+			(((unsigned long)header_buffer[0x16]) & 255) +
+			(((unsigned long)header_buffer[0x17]) & 255) * 256;
 
-  sendChecksum(checksum);
+		Serial.print("SIZE: ");
+		Serial.println(size | 0xC0DE0000, HEX);
 
-  // PROGRAM
+		Serial.print("ADDR: ");
+		Serial.println(addr | 0xC0DE0000, HEX);
 
-  delay(2000);
+		Serial.print("EXEC: ");
+		Serial.println(exec | 0xC0DE0000, HEX);
+	}
 
-  sendGap(100);
-  
-  sendTapeMark(20);
+	digitalWrite(MZT_LO, LOW); // led light off initially
 
-  checksum = 0;
-   
-  for (auto i = total; i; --i)
-  {
-    checksum += sendByte(entry.read()); 
-  }
+	digitalWrite(MZT_DO, LOW); // DATA IN signal to 0 initially
+	digitalWrite(MZT_CS, LOW); // signal /SENSE at 0 to acknowledge the MZ that data is ready
 
-  sendChecksum(checksum);
-  
-  digitalWrite(MZT_DO, HIGH);  
-  digitalWrite(MZT_CS, HIGH); // reset the /SENSE signal to 1
+	int trial = 2;
+
+retry:
+
+	// HEADER
+
+	delay(2000);
+
+	sendGap(100);
+
+	sendTapeMark(40);
+
+	checksum = 0;
+
+	for (auto i = 0u; i < 128u; ++i)
+	{
+		checksum += sendByte(header_buffer[i]);
+	}
+
+	sendChecksum(checksum);
+
+	// PROGRAM
+
+	delay(2000);
+
+	sendGap(100);
+
+	sendTapeMark(20);
+
+	checksum = 0;
+
+	for (auto i = total; i; --i)
+	{
+		checksum += sendByte(entry.read());
+	}
+
+	sendChecksum(checksum);
+
+	delay(2000);
+
+	Serial.print("CHKS: ");
+	Serial.println(checksum | 0xC0DE0000, HEX);
+
+	if (digitalRead(MZT_MI) == HIGH)
+	{
+		Serial.println("CHECKSUM Error!");
+
+		if (--trial)
+		{
+			entry.seekSet(128);
+			goto retry;
+		}
+	}
+
+	digitalWrite(MZT_DO, HIGH);
+	digitalWrite(MZT_CS, HIGH); // reset the /SENSE signal to 1
 }
 
 //////////////////////////////////////////////////////////////////////
@@ -868,24 +911,24 @@ void playMZF_Legacy_Procedural()
 
 enum LegacyStep
 {
-  // GAP
-  SHARP_PWM_GAP, // 100 short pulses
-  
-  // TAPEMARK
-  SHARP_PWM_TMl, // 40|20 long pulses
-  SHARP_PWM_TM2, // 40|20 short pulses
-  SHARP_PWM_TM3, // 1 long pulse
-  
-  // BYTE BLOCK
-  SHARP_PWM_BB1, // (128|n) x 1 long pulse
-  SHARP_PWM_BB2, // (128|n) x 8 short or long pulses
+	// GAP
+	SHARP_PWM_GAP, // 100 short pulses
 
-  // CHECKSUM
-  SHARP_PWM_CS1, // 1 long pulse
-  SHARP_PWM_CS2, // 2 x 8 short or long pulses
-  SHARP_PWM_CS3, // 1 long pulse
+	// TAPEMARK
+	SHARP_PWM_TMl, // 40|20 long pulses
+	SHARP_PWM_TM2, // 40|20 short pulses
+	SHARP_PWM_TM3, // 1 long pulse
 
-  SHARP_PWM_END
+	// BYTE BLOCK
+	SHARP_PWM_BB1, // (128|n) x 1 long pulse
+	SHARP_PWM_BB2, // (128|n) x 8 short or long pulses
+
+	// CHECKSUM
+	SHARP_PWM_CS1, // 1 long pulse
+	SHARP_PWM_CS2, // 2 x 8 short or long pulses
+	SHARP_PWM_CS3, // 1 long pulse
+
+	SHARP_PWM_END
 };
 
 #define SERIAL_PLAYING_MZF 0
@@ -893,312 +936,312 @@ enum LegacyStep
 /// This function plays a MZF file in legacy mode.
 void playMZF_Legacy_MachineState()
 {
-  unsigned long checksum;
-  unsigned long period;                   // half-pulse period
-  unsigned long delta;                    // maximum time to spend before moving to the next half-pulse
-  unsigned long last_edge;                // elapsed time since the last rising / falling edge
-  bool          level = LOW;              // level of the DATA IN signal at the output of the CMT
-  bool          led = LOW;                // led indicating the frequency of reading data
-  char          data;                     // LEP bytes read from the SD
-  unsigned long count = 0;                // number of LEP bytes read progressively
-  unsigned long led_period = 0;           // blinking period for 512 bytes LEP read
-  unsigned long total = entry.fileSize(); // total number of LEP bytes to read
-  unsigned long old_progress = -1;
-  unsigned long new_progress = 0;
-  unsigned long loop = 100;
-  LegacyStep    step = SHARP_PWM_GAP;
-  bool          header = true;
-  
-  const unsigned long sp1 = 240;       // short period for signal 1 
-  const unsigned long lp1 = 464;       // long period for signal 1
-  const unsigned long sp0 = 504 - sp1; // short period for signal 0
-  const unsigned long lp0 = 958 - lp1; // long period for signal 0
-  
-  canceled = false;
+	unsigned long checksum;
+	unsigned long period;                   // half-pulse period
+	unsigned long delta;                    // maximum time to spend before moving to the next half-pulse
+	unsigned long last_edge;                // elapsed time since the last rising / falling edge
+	bool          level = LOW;              // level of the DATA IN signal at the output of the CMT
+	bool          led = LOW;                // led indicating the frequency of reading data
+	char          data;                     // LEP bytes read from the SD
+	unsigned long count = 0;                // number of LEP bytes read progressively
+	unsigned long led_period = 0;           // blinking period for 512 bytes LEP read
+	unsigned long total = entry.fileSize(); // total number of LEP bytes to read
+	unsigned long old_progress = -1;
+	unsigned long new_progress = 0;
+	unsigned long loop = 100;
+	LegacyStep    step = SHARP_PWM_GAP;
+	bool          header = true;
 
-  digitalWrite(MZT_DO, level); // DATA IN signal to 0 initially
-  digitalWrite(MZT_LO, led); // led light off initially
+	const unsigned long sp1 = 240;       // short period for signal 1 
+	const unsigned long lp1 = 464;       // long period for signal 1
+	const unsigned long sp0 = 504 - sp1; // short period for signal 0
+	const unsigned long lp0 = 958 - lp1; // long period for signal 0
 
-  digitalWrite(MZT_CS, LOW); // signal /SENSE at 0 to acknowledge the MZ that data is ready
+	canceled = false;
 
-  last_edge = micros(); // initial elapsed time
-  delta = 125000 * LEP_UNIT; // foolish MONITOR MOTOR call which waits for 2s
+	digitalWrite(MZT_DO, level); // DATA IN signal to 0 initially
+	digitalWrite(MZT_LO, led); // led light off initially
 
-  if (header && total > 128)
-  {
-    if (entry.read(header_buffer, 128) != 128)
-    {
-      canceled = true;
-      step = SHARP_PWM_END;
-    }
-    else
-    {
-      total = (((unsigned long)header_buffer[0x12]) & 255) +
-              (((unsigned long)header_buffer[0x13]) & 255) * 256; 
-    }
-  }
+	digitalWrite(MZT_CS, LOW); // signal /SENSE at 0 to acknowledge the MZ that data is ready
 
-  while (step != SHARP_PWM_END)
-  {
-    if (digitalRead(MZT_MI) == LOW) // MOTOR at 0, pause
-    {
-      digitalWrite(MZT_DO, HIGH); // DAT IN signal at 1
-      digitalWrite(MZT_LO, LOW); // LED off
+	last_edge = micros(); // initial elapsed time
+	delta = 125000 * LEP_UNIT; // foolish MONITOR MOTOR call which waits for 2s
 
-      displayPausingMessage();
+	if (header && total > 128)
+	{
+		if (entry.read(header_buffer, 128) != 128)
+		{
+			canceled = true;
+			step = SHARP_PWM_END;
+		}
+		else
+		{
+			total = (((unsigned long)header_buffer[0x12]) & 255) +
+				(((unsigned long)header_buffer[0x13]) & 255) * 256;
+		}
+	}
 
-      while (digitalRead(MZT_MI) == LOW) // as long as MOTOR does not resume
-      {
-        if (Serial.available() || readButtons() == BTN_S) // but if you ask to cancel
-        {
-          canceled = true;
-          digitalWrite(MZT_CS, HIGH);  // the signal /SENSE reset to 1
-          return; // leave totally
-        }
-      }
-      
-      displayResumePlayingMessage();
-           
-      last_edge = micros(); // reset
-      delta = 125000 * LEP_UNIT; // foolish MONITOR MOTOR call which waits for 2s
-      digitalWrite(MZT_DO, LOW); // DAT IN signal at 0
+	while (step != SHARP_PWM_END)
+	{
+		if (digitalRead(MZT_MI) == LOW) // MOTOR at 0, pause
+		{
+			digitalWrite(MZT_DO, HIGH); // DAT IN signal at 1
+			digitalWrite(MZT_LO, LOW); // LED off
 
-      header = false;
-      level  = LOW;
-      step   = SHARP_PWM_GAP;
-      loop   = 100;
-    }
+			displayPausingMessage();
 
-    switch (step)
-    {
-    case SHARP_PWM_GAP:
-      if (level)
-      {
-        period = sp0;
-        level  = LOW;
-        if (loop == 0)
-        {
-          step = SHARP_PWM_TMl;
-          loop = header ? 40 : 20;
-        }
-      }
-      else
-      {
-        period = sp1;
-        level  = HIGH;
-        --loop;
-      }
-      break;
-      
-    case SHARP_PWM_TMl:
-      if (level)
-      {
-        period = lp0;
-        level  = LOW;
-        if (loop == 0)
-        {
-          step   = SHARP_PWM_TM2;
-          loop   = header ? 40 : 20;        
-        }
-      }
-      else
-      {
-        period = lp1;
-        level  = HIGH;
-        --loop;
-      }
-      break;
-      
-    case SHARP_PWM_TM2:
-      if (level)
-      {
-        period = sp0;
-        level  = LOW;
-        if (loop == 0)
-        {
-          step = SHARP_PWM_TM3;
-        }
-      }
-      else
-      {
-        period = sp1;
-        level  = HIGH;
-        --loop;
-      }
-      break;
-      
-    case SHARP_PWM_TM3:
-      if (level)
-      {
-        period = lp0;
-        level  = LOW;
-        step = SHARP_PWM_BB1;
-        loop = header ? (128*8) : (total*8);
-        checksum = 0;
-      }
-      else
-      {
-        period = lp1;
-        level  = HIGH;
-      }
-      break;
-      
-    case SHARP_PWM_BB1:
-      if (level)
-      {
-        period = lp0;
-        level  = LOW;
-        step = SHARP_PWM_BB2;
-      }
-      else
-      {
-        period = lp1;
-        level  = HIGH;
-        data   = header ? header_buffer[count] : entry.read();
-        ++count;
-      }
-      break;
-      
-    case SHARP_PWM_BB2:
-      if (level)
-      {
-        period = (period == sp1) ? sp0 : lp0;
-        level  = LOW;
-        if (loop)
-        {
-          if ((loop & 7) == 0)
-          {
-            step = SHARP_PWM_BB1;  
-          }
-        }
-        else
-        {
-          step = SHARP_PWM_CS1;
-          loop = 2*8;
-        }
-      }
-      else
-      {
-        if (data & 0x80)
-        {
-          period = lp1;
-          ++checksum;
-        }
-        else
-        {
-          period = sp1;       
-        }
-        level  = HIGH;
-        data <<= 1;
-        --loop;
-      }
-      break;
-      
-    case SHARP_PWM_CS1:
-      if (level)
-      {
-        period = lp0;
-        level  = LOW;
-        step = SHARP_PWM_CS2;
-      }
-      else
-      {
-        period = lp1;
-        level  = HIGH;
-      }
-      break;
-      
-    case SHARP_PWM_CS2:
-      if (level)
-      {
-        period = (period == sp1) ? sp0 : lp0;
-        level  = LOW;
-        if (loop)
-        {
-          if ((loop & 7) == 0)
-          {
-            step = SHARP_PWM_CS1;
-          }
-        }
-        else
-        {
-          step = SHARP_PWM_CS3;
-          loop = 2;
-        }
-      }
-      else
-      {
-        period     = (checksum & 0x8000) ? lp1 : sp1;
-        level      = HIGH;
-        checksum <<= 1;
-        --loop;
-      }
-      break;
-      
-    case SHARP_PWM_CS3:
-      if (level)
-      {
-        period = lp0;
-        level  = LOW;
-        if (!loop)
-        {
-          step = SHARP_PWM_END;
-        }
-      }
-      else
-      {
-        period = lp1;
-        level  = HIGH;
-        --loop;
-      }
-      break;
-      
-    default:
-      step = SHARP_PWM_END;
-      canceled = true;
-      
-    case SHARP_PWM_END:
-      period = 0;
-      level = LOW;
-      break;    
-    }
+			while (digitalRead(MZT_MI) == LOW) // as long as MOTOR does not resume
+			{
+				if (Serial.available() || readButtons() == BTN_S) // but if you ask to cancel
+				{
+					canceled = true;
+					digitalWrite(MZT_CS, HIGH);  // the signal /SENSE reset to 1
+					return; // leave totally
+				}
+			}
+
+			displayResumePlayingMessage();
+
+			last_edge = micros(); // reset
+			delta = 125000 * LEP_UNIT; // foolish MONITOR MOTOR call which waits for 2s
+			digitalWrite(MZT_DO, LOW); // DAT IN signal at 0
+
+			header = false;
+			level = LOW;
+			step = SHARP_PWM_GAP;
+			loop = 100;
+		}
+
+		switch (step)
+		{
+		case SHARP_PWM_GAP:
+			if (level)
+			{
+				period = sp0;
+				level = LOW;
+				if (loop == 0)
+				{
+					step = SHARP_PWM_TMl;
+					loop = header ? 40 : 20;
+				}
+			}
+			else
+			{
+				period = sp1;
+				level = HIGH;
+				--loop;
+			}
+			break;
+
+		case SHARP_PWM_TMl:
+			if (level)
+			{
+				period = lp0;
+				level = LOW;
+				if (loop == 0)
+				{
+					step = SHARP_PWM_TM2;
+					loop = header ? 40 : 20;
+				}
+			}
+			else
+			{
+				period = lp1;
+				level = HIGH;
+				--loop;
+			}
+			break;
+
+		case SHARP_PWM_TM2:
+			if (level)
+			{
+				period = sp0;
+				level = LOW;
+				if (loop == 0)
+				{
+					step = SHARP_PWM_TM3;
+				}
+			}
+			else
+			{
+				period = sp1;
+				level = HIGH;
+				--loop;
+			}
+			break;
+
+		case SHARP_PWM_TM3:
+			if (level)
+			{
+				period = lp0;
+				level = LOW;
+				step = SHARP_PWM_BB1;
+				loop = header ? (128 * 8) : (total * 8);
+				checksum = 0;
+			}
+			else
+			{
+				period = lp1;
+				level = HIGH;
+			}
+			break;
+
+		case SHARP_PWM_BB1:
+			if (level)
+			{
+				period = lp0;
+				level = LOW;
+				step = SHARP_PWM_BB2;
+			}
+			else
+			{
+				period = lp1;
+				level = HIGH;
+				data = header ? header_buffer[count] : entry.read();
+				++count;
+			}
+			break;
+
+		case SHARP_PWM_BB2:
+			if (level)
+			{
+				period = (period == sp1) ? sp0 : lp0;
+				level = LOW;
+				if (loop)
+				{
+					if ((loop & 7) == 0)
+					{
+						step = SHARP_PWM_BB1;
+					}
+				}
+				else
+				{
+					step = SHARP_PWM_CS1;
+					loop = 2 * 8;
+				}
+			}
+			else
+			{
+				if (data & 0x80)
+				{
+					period = lp1;
+					++checksum;
+				}
+				else
+				{
+					period = sp1;
+				}
+				level = HIGH;
+				data <<= 1;
+				--loop;
+			}
+			break;
+
+		case SHARP_PWM_CS1:
+			if (level)
+			{
+				period = lp0;
+				level = LOW;
+				step = SHARP_PWM_CS2;
+			}
+			else
+			{
+				period = lp1;
+				level = HIGH;
+			}
+			break;
+
+		case SHARP_PWM_CS2:
+			if (level)
+			{
+				period = (period == sp1) ? sp0 : lp0;
+				level = LOW;
+				if (loop)
+				{
+					if ((loop & 7) == 0)
+					{
+						step = SHARP_PWM_CS1;
+					}
+				}
+				else
+				{
+					step = SHARP_PWM_CS3;
+					loop = 2;
+				}
+			}
+			else
+			{
+				period = (checksum & 0x8000) ? lp1 : sp1;
+				level = HIGH;
+				checksum <<= 1;
+				--loop;
+			}
+			break;
+
+		case SHARP_PWM_CS3:
+			if (level)
+			{
+				period = lp0;
+				level = LOW;
+				if (!loop)
+				{
+					step = SHARP_PWM_END;
+				}
+			}
+			else
+			{
+				period = lp1;
+				level = HIGH;
+				--loop;
+			}
+			break;
+
+		default:
+			step = SHARP_PWM_END;
+			canceled = true;
+
+		case SHARP_PWM_END:
+			period = 0;
+			level = LOW;
+			break;
+		}
 
 #if 1
-    if (!level)
-    {
-      auto size = 128 + total; 
-      if (count < size)
-      {
-        new_progress = (5 * 4 * count) / size;
-        if (old_progress != new_progress)
-        {
-          displayProgressBar(new_progress);
+		if (!level)
+		{
+			auto size = 128 + total;
+			if (count < size)
+			{
+				new_progress = (5 * 4 * count) / size;
+				if (old_progress != new_progress)
+				{
+					displayProgressBar(new_progress);
 
-          old_progress = new_progress;
-        }
-      }
-    }
+					old_progress = new_progress;
+				}
+			}
+		}
 #endif
 
-    while (micros() < last_edge + delta); // we pause in the desired period
-    
-    digitalWrite(MZT_DO, level); // and we update the level output DATA IN
-    
-    last_edge = micros(); // update the time reference for the period
-    delta = period; // and the next period
+		while (micros() < last_edge + delta); // we pause in the desired period
 
-    ++led_period;
-    
-    if (led_period & 512) // the control led is alternated every 512 LEP bytes processed
-    {
-      led = !led; // toggle the signal level of the LED indicator
-      digitalWrite(MZT_LO, led);
-    }
-  }
-  
-  digitalWrite(MZT_LO, LOW); // it's over, no more led.
-  digitalWrite(MZT_CS, HIGH); // reset the /SENSE signal to 1
-  digitalWrite(MZT_DO, HIGH);
+		digitalWrite(MZT_DO, level); // and we update the level output DATA IN
+
+		last_edge = micros(); // update the time reference for the period
+		delta = period; // and the next period
+
+		++led_period;
+
+		if (led_period & 512) // the control led is alternated every 512 LEP bytes processed
+		{
+			led = !led; // toggle the signal level of the LED indicator
+			digitalWrite(MZT_LO, led);
+		}
+	}
+
+	digitalWrite(MZT_LO, LOW); // it's over, no more led.
+	digitalWrite(MZT_CS, HIGH); // reset the /SENSE signal to 1
+	digitalWrite(MZT_DO, HIGH);
 }
 
 // SCK = /SENSE ---> MZ inputs  MOTOR (PC4), MOTOR = not /SENSE
@@ -1207,153 +1250,153 @@ void playMZF_Legacy_MachineState()
 
 void sendMZFByte_UltraFast(unsigned char c)
 {
-  // TODO    
-  for (int i = 0; i < 8; ++i)
-  {   
-    unsigned long us = micros();
+	// TODO    
+	for (int i = 0; i < 8; ++i)
+	{
+		unsigned long us = micros();
 
-    bool level = (c & (1 << i)) ? HIGH : LOW;
-    digitalWrite(MZT_DO, level);                // set SDI to level 
-    digitalWrite(MZT_CS, (i & 1) ? HIGH : LOW); // toggle SCK to acknowledge MZ
-    digitalWrite(MZT_LO, level);
-    
-    while(micros() < us + 16);
-  }
+		bool level = (c & (1 << i)) ? HIGH : LOW;
+		digitalWrite(MZT_DO, level);                // set SDI to level 
+		digitalWrite(MZT_CS, (i & 1) ? HIGH : LOW); // toggle SCK to acknowledge MZ
+		digitalWrite(MZT_LO, level);
+
+		while (micros() < us + 16);
+	}
 }
 
 /// This function plays a MZF file.
 void playMZF_UltraFast()
 {
-  unsigned long   total = entry.fileSize();
-  unsigned char   data;
-  unsigned long   size = 0;
-  unsigned short  load = 0;
-  unsigned short  exec = 0;
-  unsigned long   count;
-  unsigned long   old_progress = -1;
-  unsigned long   new_progress = 0;
-  bool            led = LOW;
+	unsigned long   total = entry.fileSize();
+	unsigned char   data;
+	unsigned long   size = 0;
+	unsigned short  load = 0;
+	unsigned short  exec = 0;
+	unsigned long   count;
+	unsigned long   old_progress = -1;
+	unsigned long   new_progress = 0;
+	bool            led = LOW;
 
-  canceled = false;
+	canceled = false;
 
-  data = entry.read(); /* 0x10F0: file attribute */
+	data = entry.read(); /* 0x10F0: file attribute */
 
-  if (data == 1 && total >= 128) // On ne lit que les fichiers de type EXECUTABLE BINAIRE
-  {
-    for (int i = 0x10F1; i < 0x1102; ++i) entry.read(); // skip file name
+	if (data == 1 && total >= 128) // On ne lit que les fichiers de type EXECUTABLE BINAIRE
+	{
+		for (int i = 0x10F1; i < 0x1102; ++i) entry.read(); // skip file name
 
-    size  = (/* 0x1102 */entry.read() & 255) << 0;   
-    size += (/* 0x1103 */entry.read() & 255) << 8;
+		size = (/* 0x1102 */entry.read() & 255) << 0;
+		size += (/* 0x1103 */entry.read() & 255) << 8;
 
-    load  = (/* 0x1104 */entry.read() & 255) << 0;
-    load += (/* 0x1105 */entry.read() & 255) << 8;
-    
-    exec  = (/* 0x1106 */entry.read() & 255) << 0;
-    exec += (/* 0x1107 */entry.read() & 255) << 8;
-    
-    for (int i = 0x1108; i < 0x1170; ++i) entry.read(); // skip the header
+		load = (/* 0x1104 */entry.read() & 255) << 0;
+		load += (/* 0x1105 */entry.read() & 255) << 8;
 
-    sendMZFByte_UltraFast((size >> 0) & 255);
-    sendMZFByte_UltraFast((size >> 8) & 255);
-    sendMZFByte_UltraFast((exec >> 0) & 255);
-    sendMZFByte_UltraFast((exec >> 8) & 255);
-    sendMZFByte_UltraFast((load >> 0) & 255);
-    sendMZFByte_UltraFast((load >> 8) & 255);
+		exec = (/* 0x1106 */entry.read() & 255) << 0;
+		exec += (/* 0x1107 */entry.read() & 255) << 8;
 
-    count = 0;
+		for (int i = 0x1108; i < 0x1170; ++i) entry.read(); // skip the header
 
-    if (total - 128 == size)
-    {
-      while (count != size)
-      {        
-        data = entry.read();
-        ++count;
-  
-        new_progress = (5 * 4 * count) / size;
-        if (old_progress != new_progress)
-        {
-          displayProgressBar(new_progress);
+		sendMZFByte_UltraFast((size >> 0) & 255);
+		sendMZFByte_UltraFast((size >> 8) & 255);
+		sendMZFByte_UltraFast((exec >> 0) & 255);
+		sendMZFByte_UltraFast((exec >> 8) & 255);
+		sendMZFByte_UltraFast((load >> 0) & 255);
+		sendMZFByte_UltraFast((load >> 8) & 255);
 
-          old_progress = new_progress;
-        }
-  
-        sendMZFByte_UltraFast(data);    
-      }
-    }
-    else
-    {
-      canceled = true;
-    }
+		count = 0;
 
-    digitalWrite(MZT_LO, LOW);
-    digitalWrite(MZT_CS, HIGH);
-  }
-  else
-  {
-    canceled = true;
-  }
+		if (total - 128 == size)
+		{
+			while (count != size)
+			{
+				data = entry.read();
+				++count;
+
+				new_progress = (5 * 4 * count) / size;
+				if (old_progress != new_progress)
+				{
+					displayProgressBar(new_progress);
+
+					old_progress = new_progress;
+				}
+
+				sendMZFByte_UltraFast(data);
+			}
+		}
+		else
+		{
+			canceled = true;
+		}
+
+		digitalWrite(MZT_LO, LOW);
+		digitalWrite(MZT_CS, HIGH);
+	}
+	else
+	{
+		canceled = true;
+	}
 }
 
 void setup()
 {
-  Serial.begin(9600);
+	Serial.begin(115200);
 
-  setupDisplay();
-  
-  pinMode(SD0_SS, OUTPUT);
-  
-  pinMode(MZT_DO, OUTPUT);
-  pinMode(MZT_DI, INPUT_PULLUP);
-  pinMode(MZT_CS, OUTPUT);
-  pinMode(MZT_MI, INPUT_PULLUP);
-  pinMode(MZT_LO, OUTPUT);
+	setupDisplay();
 
-  digitalWrite(MZT_DO, HIGH); // signal DATA IN à 1 initialement
-  digitalWrite(MZT_CS, HIGH); // signal /SENSE à 1 (lecteur non disponible)
-  digitalWrite(MZT_LO, LOW);  // témoin led éteint
+	pinMode(SD0_SS, OUTPUT);
 
-  sd_ready = sd.begin(SD0_SS, SPI_FULL_SPEED);
-   
-  if (!sd_ready) // accès au SD en full-speed
-  {
-    sd.initErrorHalt();
+	pinMode(MZT_DO, OUTPUT);
+	pinMode(MZT_DI, INPUT_PULLUP);
+	pinMode(MZT_CS, OUTPUT);
+	pinMode(MZT_MI, INPUT_PULLUP);
+	pinMode(MZT_LO, OUTPUT);
 
-    displayNoSDCard();
-  }
+	digitalWrite(MZT_DO, HIGH); // signal DATA IN à 1 initialement
+	digitalWrite(MZT_CS, HIGH); // signal /SENSE à 1 (lecteur non disponible)
+	digitalWrite(MZT_LO, LOW);  // témoin led éteint
+
+	sd_ready = sd.begin(SD0_SS, SPI_FULL_SPEED);
+
+	if (!sd_ready) // accès au SD en full-speed
+	{
+		sd.initErrorHalt();
+
+		displayNoSDCard();
+	}
 }
 
 void loop()
 {
-  Serial.println("MZ-SD2CMT");
+	Serial.println("MZ-SD2CMT");
 
-  enterDir();
-  
-  while (!Serial.available())
-  {
-    switch (readButtons())
-    {
-    case BTN_R:
-      rightPressed();
-      break;
-    case BTN_L:
-      leftPressed();
-      break;
-    case BTN_U:
-      upPressed();
-      break;
-    case BTN_D:
-      downPressed();
-      break;
-    case BTN_S:
-      selectPressed();
-      break;
-    default:
-      nonePressed();
-      break;
-    }
+	enterDir();
 
-    displayScrollingMessage();   
-  }
+	while (!Serial.available())
+	{
+		switch (readButtons())
+		{
+		case BTN_R:
+			rightPressed();
+			break;
+		case BTN_L:
+			leftPressed();
+			break;
+		case BTN_U:
+			upPressed();
+			break;
+		case BTN_D:
+			downPressed();
+			break;
+		case BTN_S:
+			selectPressed();
+			break;
+		default:
+			nonePressed();
+			break;
+		}
 
-  // Do something with Serial?
+		displayScrollingMessage();
+	}
+
+	// Do something with Serial?
 }
