@@ -1,5 +1,5 @@
-# MZ-SD2CMT
-SD card based CMT for MZ 80K series
+# MZ-SD²CMT
+SD card based CMT for MZ 80K series (MZ-80 K/K2/K2E/C, MZ-80 A, MZ-1200, MZ-700).
 
 ## Parts Used
 1. Arduino MEGA (but this should work on any Arduino UNO or NANO with minimal changes)
@@ -31,7 +31,7 @@ Arduino MEGA Pins:
  RX3  | 15     | <-        | MZCMT WRITE
  TX2  | 16     | <-        | MZCMT MOTOR
  RX2  | 17     | ->        | MZCMT READ
- TX1  | 18     | ->        | MZCMT /SENSE
+ TX1  | 18     | ->        | MZCMT SENSE
  RX1  | 19     | ->        | MZCMT LED
  .    | 50     | ->        | SD MOSI (SD Card MOSI PIN)
  .    | 51     | <-        | SD MISO (SD Card MI PIN)
@@ -74,6 +74,13 @@ LED Pins:
 ## Usage
 Wire up as above, and program the Arduino using the IDE.
 
+The following picture is showing how to connect Arduino to 8255:  
+![mz-700 - 8255 <-> Arduino](https://user-images.githubusercontent.com/56785/42876668-a6c55d26-8a87-11e8-8afd-9b2e94d2cd26.png)
+Note: you must disregard the blue connection (CMT SCK) as it is a work in progress and may not be functional or unsafe.
+
+Drop some MZF/M12/MZT files onto a FAT32 formatted SD card, plug it into the sd2mzcmt, and power on. For now, only the fast tape data mode is supported. Ultra-fast mode is a work in progress. 
+
+## Old usage which may not work / be deprecated
 Drop some LEP files (converted MZF Files through mzf2lep tool) onto a FAT32 formatted SD card, plug it into the sd2mzcmt, and power on.
 
 Tool mzf2lep can convert a MZF/MZT/M12 file into a LEP file in five ways:
@@ -85,7 +92,12 @@ Tool mzf2lep can convert a MZF/MZT/M12 file into a LEP file in five ways:
 
 ## Issues
 
-Turbo x4 may fail for some MZF files - especially the big ones. It still needs some tuning.  
+WAV file can be hardly supported because of the necessary speed reading SD. Since WAV files tend to be 44.1 KHz, Arduino cannot handle it.
 
+LEP file is not working any longer. The algorithm may need a rewrite or can be deprecated. The only interest is for a program needing to read severals blocks. Maybe the same thing can be handled through a MZT file (with multiple data blocks) by listening to MOTOR signal to separate block readings. But unlike LEP, there is no way to say whether the next block is a header block or a data block.
 
+Some programs are a set of blocks in the tape: the first program will read the rest in one or several blocks. Right now, MZF, M12 and MZT don't handle them correctly (no indication whether the next block is a header or a data so you can emit the right prolog). Maybe defining a new binary file with those indication may help to allow reading multiple data. 
 
+UltraTurbo x4 was available through LEP files. As LEP format may be deprecated, it is unclear whether turbo modes will be handled in the future.
+
+An Ultrafast mode is a work in progress, but it appears that you cannot use SENSE signal as a serial clock that you can toggle it quickly as it is not a square signal and can ask for around 3ms until the signal change is seen by the 8255. So I am looking for a way to connect SCK straight to PC4 (8255) to get a square signal here when transfering in ultra fast mode.  
