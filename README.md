@@ -98,6 +98,6 @@ LEP file is not working any longer. The algorithm may need a rewrite or can be d
 
 Some programs are a set of blocks in the tape: the first program will read the rest in one or several blocks. Right now, MZF, M12 and MZT don't handle them correctly (no indication whether the next block is a header or a data so you can emit the right prolog). Maybe defining a new binary file with those indication may help to allow reading multiple data. 
 
-UltraTurbo x4 was available through LEP files. As LEP format may be deprecated, it is unclear whether turbo modes will be handled in the future.
+Turbo x4 was available through LEP files. As LEP format may be deprecated, it is unclear whether turbo modes will be handled in the future.
 
 An Ultrafast mode is a work in progress, but it appears that you cannot use SENSE signal as a serial clock that you can toggle it quickly as it is not a square signal and can ask for around 3ms until the signal change is seen by the 8255. So I am looking for a way to connect SCK straight to PC4 (8255) to get a square signal here when transfering in ultra fast mode.  
