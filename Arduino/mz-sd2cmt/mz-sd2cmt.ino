@@ -7,7 +7,13 @@
 #define HAS_LCD16x2 1
 #define HAS_ANALOG_BTNSET 1
 
-#define LEP_UNIT        16     // LEP resolution in µs unit
+#define L16_UNIT        16     // LEP resolution in 16µs unit
+#define L50_UNIT        50     // LEP resolution in 50µs unit
+
+#define LO				0
+#define HI				1
+
+#if defined(__AVR_ATmega2560__)
 
 #define SD0_MO          50     // SD MOSI
 #define SD0_MI          51     // SD MISO
@@ -20,17 +26,63 @@
 #define MZT_CS          18     // MZTape /SENSE (CS -> /SENSE) 
 #define MZT_LO          19     // MZTape LED OUTPUT
 
+#define port_MZT_DI		(&PINJ)
+#define port_MZT_MI		(&PINH)
+#define port_MZT_DO		(&PORTE)
+#define port_MZT_CS		(&PORTD)
+#define port_MZT_LO		(&PORTD)
+
+#define mask_MZT_DI		(1 << PJ0)
+#define mask_MZT_MI		(1 << PH1)
+#define mask_MZT_DO		(1 << PE5) // OC3C
+#define mask_MZT_CS		(1 << PD3)
+#define mask_MZT_LO		(1 << PD2)
+
+#else
+
+#error Needs implementation
+
+#define SD0_MO          50     // SD MOSI
+#define SD0_MI          51     // SD MISO
+#define SD0_CK          52     // SD SCK
+#define SD0_SS          53     // SS SS
+
+#define MZT_DI          15     // MZTape WRITE (WRITE -> DI)
+#define MZT_MI          16     // MZTape MOTOR ON (MOTOR ON -> MI) 
+#define MZT_DO           3     // MZTape READ (DO -> READ)
+#define MZT_CS          18     // MZTape /SENSE (CS -> /SENSE) 
+#define MZT_LO          19     // MZTape LED OUTPUT
+
+const auto port_MZT_DI = portInputRegister (digitalPinToPort(MZT_DI));
+const auto port_MZT_MI = portInputRegister (digitalPinToPort(MZT_MI));
+const auto port_MZT_DO = portOutputRegister(digitalPinToPort(MZT_DO));
+const auto port_MZT_CS = portOutputRegister(digitalPinToPort(MZT_CS));
+const auto port_MZT_LO = portOutputRegister(digitalPinToPort(MZT_LO));
+
+const auto mask_MZT_DI = digitalPinToBitMask(MZT_DI);
+const auto mask_MZT_MI = digitalPinToBitMask(MZT_MI);
+const auto mask_MZT_DO = digitalPinToBitMask(MZT_DO);
+const auto mask_MZT_CS = digitalPinToBitMask(MZT_CS);
+const auto mask_MZT_LO = digitalPinToBitMask(MZT_LO);
+
+#endif
+
+#define set_port_bit(p, b)			if (b) *port_##p |= mask_##p; else *port_##p &= ~mask_##p
+#define get_port_bit(p)				(*port_##p & mask_##p)
+#define toggle_port_bit(p)			*port_##p ^= mask_##p
+#define clear_port_bit(p)			*port_##p &= ~mask_##p
+
 #define DIR_DEPTH       8
 #define SFN_DEPTH       13
 #define LFN_DEPTH       100
 
 #define ENTRY_UNK       0
 #define ENTRY_DIR       1
-#define ENTRY_LEP       2 // WAV-like file with 16us resolution where a byte encodes an edge change after a period
+#define ENTRY_LEP       2 // WAV-like file with 50µs/16us resolution where a byte encodes an edge change after a period
 #define ENTRY_MZF       3 // well-known binary format which includes a 128-byte header block and a data block (MZF/M12).
 #define ENTRY_MZT       4 // may contain more than one 128-byte header and one data block.
 
-#define SPEED_LEGACY    0 // SHARP PWM system (MZ-700/800) 
+#define SPEED_NORMAL    0 // SHARP PWM system (MZ-700/800) 
 #define SPEED_ULTRAFAST 1
 
 char				entry_type = ENTRY_UNK;
@@ -48,6 +100,7 @@ bool				canceled = false;
 bool				ultrafast = false;
 bool				ultrafast_enabled = false;
 bool				level = LOW;
+unsigned long		lep_unit = L16_UNIT; // 16µs by default
 char				header_buffer[128];
 char const			loader_buffer[] =
 {
@@ -106,6 +159,7 @@ char const			loader_buffer[] =
     0x20, 0xD6,                 //      jr      nz,l1           ; +12/7 --> 577 cycles per byte at best case --> 164,9us per byte at best case
     0xFB,                       //      ei
     0xE1,                       //      pop     hl
+//	0xC3, 0xAD, 0x00,
     0xE9                        //      jp      (hl)            ; at this point, 44544 bytes should be loaded in 7.4s in theory but Arduino needs to read bytes 
 };
 
@@ -362,8 +416,18 @@ bool checkForLEP(char *filename)
 {
     auto ext = strlwr(filename + (strlen(filename) - 4));
 
+	if (!!strstr(ext, ".l50"))
+	{
+		lep_unit = L50_UNIT;
+
+		return true;
+	}
+
+	lep_unit = L16_UNIT;
+
     return
-        !!strstr(ext, ".lep");
+        !!strstr(ext, ".l16") ||
+		!!strstr(ext, ".lep");
 }
 
 bool checkForMZF(char *filename)
@@ -738,12 +802,9 @@ void nonePressed()
 /// This function plays a LEP file.
 void playLEP()
 {
-    unsigned long period;                   // half-pulse period
-    unsigned long delta;                    // maximum time to spend before moving to the next half-pulse
-    unsigned long last_edge;                // elapsed time since the last rising / falling edge
-    bool          level = HIGH;             // level of the DATA IN signal at the output of the CMT
-    bool          led = LOW;                // led indicating the frequency of reading data
-    char          data, next = 0;           // LEP bytes read from the SD
+    unsigned long period, period1, period0; // half-pulse period, mark pulse period, space pulse period 
+    bool          led = false;              // led indicating the frequency of reading data
+    char          prev = 0, data, next = 0; // LEP bytes read from the SD
     unsigned long count = 0;                // number of LEP bytes read progressively
     unsigned long led_period = 0;           // blinking period for 512 bytes LEP read
     unsigned long total = entry.fileSize(); // total number of LEP bytes to read
@@ -752,94 +813,102 @@ void playLEP()
 
     canceled = false;
 
-    digitalWrite(MZT_DO, level); // DATA IN signal to 1 initially
-    digitalWrite(MZT_LO, led); // led light off initially
+	set_port_bit(MZT_LO, led); // led light off initially
 
-    digitalWrite(MZT_CS, LOW); // signal /SENSE at 0 to acknowledge the MZ that data is ready
+	set_port_bit(MZT_CS, 0); // signal /SENSE at 0 to acknowledge the MZ that data is ready
 
-    last_edge = micros(); // initial elapsed time
-    delta = 125000 * LEP_UNIT; // foolish MONITOR MOTOR call which waits for 2s
+	osp.start();
+	osp.adjustWait(2000000); // foolish MONITOR MOTOR call which waits for 2s
 
-    while (count < total) // read all the LEP bytes from the file
-    {
-        if (digitalRead(MZT_MI) == LOW) // MOTOR at 0, pause
-        {
-            digitalWrite(MZT_DO, HIGH); // DAT IN signal at 1
-            digitalWrite(MZT_LO, LOW); // LED off
+	while (count < total) // read all the LEP bytes from the file
+	{
+		if (get_port_bit(MZT_MI) == 0) // MOTOR at 0, pause
+		{
+			set_port_bit(MZT_LO, 0); // LED off
 
-            displayPausingMessage();
+			osp.stop();
 
-            while (digitalRead(MZT_MI) == LOW) // as long as MOTOR does not resume
-            {
-                if (Serial.available() || readButtons() == BTN_S) // but if you ask to cancel
-                {
-                    canceled = true;
-                    digitalWrite(MZT_CS, HIGH);  // the signal /SENSE reset to 1
-                    return; // leave totally
-                }
-            }
+			displayPausingMessage();
 
-            displayResumePlayingMessage();
+			while (get_port_bit(MZT_MI) == 0) // as long as MOTOR does not resume
+			{
+				if (Serial.available() || readButtons() == BTN_S) // but if you ask to cancel
+				{
+					canceled = true;
+					set_port_bit(MZT_CS, 1);  // the signal /SENSE reset to 1
+					return; // leave totally
+				}
+			}
 
-            last_edge = micros(); // reset
-            delta = 125000 * LEP_UNIT; // foolish MONITOR MOTOR call which waits for 2s
-        }
+			displayResumePlayingMessage();
 
-        if (next) // the following LEP byte is immediately available
-        {
-            data = next; // take it
-            next = 0;
-            ++count;
-        }
-        else
-        {
-            data = entry.read(); // otherwise we read it from the SD
-            ++count;
+			osp.start();
+			osp.adjustWait(2000000); // foolish MONITOR MOTOR call which waits for 2s
+		}
 
-            if (data < 0) // if the new LEP byte is a falling edge
-            {
-                if (count < total)
-                {
-                    next = entry.read(); // read in advance the following LEP byte
+		if (next) // the following LEP byte is immediately available
+		{
+			data = next; // take it
+			next = 0;
+			++count;
+		}
+		else
+		{
+			data = entry.read(); // otherwise we read it from the SD
+			++count;
 
-                    new_progress = (5 * 4 * count) / total;
-                    if (old_progress != new_progress)
-                    {
-                        displayProgressBar(new_progress);
+			if (data < 0) // if the new LEP byte is a mark period
+			{
+				if (count < total)
+				{
+					next = entry.read(); // read in advance the following LEP byte
 
-                        old_progress = new_progress;
-                    }
-                }
-            }
-        }
+					new_progress = (5 * 4 * count) / total;
+					if (old_progress != new_progress)
+					{
+						displayProgressBar(new_progress);
 
-        /**/ if (data == 0) period = 127;   // very long period ...
-        else if (data <  0) period = -data; // in absolute value
-        else                period = +data; // in absolute value
+						old_progress = new_progress;
+					}
+				}
+			}
+		}
 
-        period *= LEP_UNIT; // converts to microseconds
+		/**/ if (data == 0)
+		{
+			/**/ if (prev < 0) period1 += 127 * lep_unit; // very long period ...
+			else if (prev > 0) period0 += 127 * lep_unit; // very long period ...
+		}
+		else if (data < 0)
+		{
+			period1 = -data * lep_unit; // in absolute value
+			prev = data;
+		}
+		else
+		{
+			period0 = +data * lep_unit; // in absolute value
+			prev = data;
 
-        /**/ if (data > 0) level = HIGH; // if positive LEP byte, next half-pulse at 1
-        else if (data < 0) level = LOW;  // if negative LEP byte, next half-pulse at 0
+			osp.wait();
+			osp.fire(period1, period1 + period0); // and we update the level output DATA IN
 
-        while (micros() - last_edge < delta); // we pause in the desired period
-
-        digitalWrite(MZT_DO, level); // and we update the level output DATA IN
-
-        last_edge = micros(); // update the time reference for the period
-        delta = period; // and the next period
+			period1 = 0;
+			period0 = 0;
+		}
 
         ++led_period;
 
         if (led_period & 512) // the control led is alternated every 512 LEP bytes processed
         {
             led = !led; // toggle the signal level of the LED indicator
-            digitalWrite(MZT_LO, led);
+			set_port_bit(MZT_LO, led);
         }
     }
-    digitalWrite(MZT_LO, LOW); // it's over, no more led.
-    digitalWrite(MZT_CS, HIGH); // reset the /SENSE signal to 1
-    digitalWrite(MZT_DO, HIGH);
+
+	set_port_bit(MZT_LO, 0); // it's over, no more led.
+	set_port_bit(MZT_CS, 1); // reset the /SENSE signal to 1
+
+	osp.stop();
 }
 
 #if 0
@@ -1096,7 +1165,7 @@ void playMZF()
     unsigned long checksum;
     unsigned long period1, period0;         // half-pulse period (mark, space) 
     unsigned long last_edge;                // elapsed time since the last rising / falling edge
-    bool          led = LOW;                // led indicating the frequency of reading data
+    bool          led = false;              // led indicating the frequency of reading data
     char          data;                     // LEP bytes read from the SD
     unsigned long count = 0;                // number of bytes read progressively
     unsigned long led_period = 0;           // blinking period for 512 bytes read
@@ -1109,11 +1178,6 @@ void playMZF()
     bool          header = true;
     char          jumper_buffer[12];
 
-    //const unsigned long sp1 = 240;       // short period for signal 1 
-    //const unsigned long lp1 = 464;       // long period for signal 1
-    //const unsigned long sp0 = 504 - sp1; // short period for signal 0
-    //const unsigned long lp0 = 958 - lp1; // long period for signal 0
-
     const unsigned long sp1 = 240;       // short period for signal 1
     const unsigned long lp1 = 440;       // long period for signal 1
     const unsigned long sp0 = 480 - sp1; // short period for signal 0
@@ -1122,11 +1186,11 @@ void playMZF()
     canceled = false;
 
     osp.start();
-    osp.adjustWait(125000 * LEP_UNIT); // 2s
+    osp.adjustWait(2000000); // 2s
 
-    digitalWrite(MZT_LO, led); // led light off initially
+	set_port_bit(MZT_LO, led); // led light off initially
 
-    digitalWrite(MZT_CS, LOW); // signal /SENSE at 0 to acknowledge the MZ that data is ready
+	set_port_bit(MZT_CS, 0); // signal /SENSE at 0 to acknowledge the MZ that data is ready
 
     if (total > 128)
     {
@@ -1175,7 +1239,7 @@ void playMZF()
 
     while (step != SHARP_PWM_END)
     {
-        if (step != SHARP_PWM_ULTRAFAST && digitalRead(MZT_MI) == LOW) // MOTOR at 0, pause
+        if (step != SHARP_PWM_ULTRAFAST && get_port_bit(MZT_MI) == 0) // MOTOR at 0, pause
         {
             bool multiple_data = entry.available() != 0;
 
@@ -1185,9 +1249,9 @@ void playMZF()
 
                 step = SHARP_PWM_ULTRAFAST;
 
-                digitalWrite(MZT_CS, HIGH);
+                set_port_bit(MZT_CS, 1);
 
-                osp.setLevel(HIGH);
+                osp.setLevel(1);
 
                 delay(100);
 
@@ -1198,18 +1262,18 @@ void playMZF()
             {
                 osp.stop();
 
-                digitalWrite(MZT_LO, LOW); // LED off
+				set_port_bit(MZT_LO, 0); // LED off
 
                 Serial.print(F("Waiting for motor on... "));
 
                 displayPausingMessage();
 
-                while (digitalRead(MZT_MI) == LOW) // as long as MOTOR does not resume
+                while (get_port_bit(MZT_MI) == 0) // as long as MOTOR does not resume
                 {
                     if (Serial.available() || readButtons() == BTN_S) // but if you ask to cancel
                     {
                         canceled = true;
-                        digitalWrite(MZT_CS, HIGH);  // the signal /SENSE reset to 1
+						set_port_bit(MZT_CS, 1);  // the signal /SENSE reset to 1
 
                         return; // leave totally
                     }
@@ -1228,7 +1292,7 @@ void playMZF()
                 }
 
                 osp.start();
-                osp.adjustWait(125000 * LEP_UNIT); // 2s
+                osp.adjustWait(2000000); // 2s
 
                 header = false;
                 step = SHARP_PWM_BEGIN;
@@ -1398,39 +1462,77 @@ void playMZF()
                 size_t n = loop / 8;
                 if (n = entry.read(header_buffer, (n <= sizeof(header_buffer)) ? n : sizeof(header_buffer)))
                 {
-                    for (size_t i = 0; i < n; ++i)
+					for (size_t i = 0; i < n; ++i)
                     {
-                        char data = header_buffer[i];
-                        data = (data << 2) | ((data >> 6) & 0x03);
-                        ++count;
+						//char data = header_buffer[i];
+                        //data = (data << 2) | ((data >> 6) & 0x03);
+						char data = __builtin_avr_insert_bits(0x54321076, header_buffer[i], 0);
                         for (size_t j = 4; j; --j)
                         {
-                            while (digitalRead(MZT_DI) != LOW);
-                            osp.setLevel((data & 0x80) ? HIGH : LOW);
-                            digitalWrite(MZT_CS, LOW);
-                            while (digitalRead(MZT_DI) != HIGH);
-                            osp.setLevel((data & 0x40) ? HIGH : LOW);
-                            digitalWrite(MZT_CS, HIGH);
-                            data <<= 2;
-                            loop -= 2;
+							while (get_port_bit(MZT_DI) != 0);
+
+							osp.setLevel(!!(data & 0x80));
+
+							set_port_bit(MZT_CS, 0);
+							
+							while (get_port_bit(MZT_DI) == 0);
+
+							osp.setLevel(!!(data & 0x40));
+                            
+							set_port_bit(MZT_CS, 1);
+
+							data <<= 2;
                         }
                     }
-                }
+					count += n;
+					loop -= n * 8;
+				}
+#elif 1 // optimization test
+				size_t n = loop / 8;
+				{
+					auto delta = micros();
+
+					for (size_t i = 0; i < n; ++i)
+					{
+						for (size_t j = 4; j; --j)
+						{
+							while (get_port_bit(MZT_DI) != 0);
+
+							osp.setLevel(0);
+
+							set_port_bit(MZT_CS, 0);
+
+							while (get_port_bit(MZT_DI) == 0);
+
+							osp.setLevel(1);
+
+							set_port_bit(MZT_CS, 1);
+
+							data <<= 2;
+
+						}
+					}
+
+					Serial.println(micros() - delta);
+
+					count = n;
+					loop = 0;
+				}
 #else
-                char data = entry.read();
+				char data = entry.read();
                 data = (data << 2) | ((data >> 6) & 0x03);
                 ++count;
                 for (size_t j = 4; j; --j)
                 {
-                    while (digitalRead(MZT_DI) != LOW);
-                    osp.toggleLevel((data & 0x80) ? HIGH : LOW);
-                    digitalWrite(MZT_CS, LOW);
-                    while (digitalRead(MZT_DI) != HIGH);
-                    osp.toggleLevel((data & 0x40) ? HIGH : LOW);
-                    digitalWrite(MZT_CS, HIGH);
-                    data <<= 2;
-                    loop -= 2;
-                }
+					while (digitalRead(MZT_DI) != LOW);
+					osp.setLevel((data & 0x80) ? HIGH : LOW);
+					digitalWrite(MZT_CS, LOW);
+					while (digitalRead(MZT_DI) != HIGH);
+					osp.setLevel((data & 0x40) ? HIGH : LOW);
+					digitalWrite(MZT_CS, HIGH);
+					data <<= 2;
+					loop -= 2;
+				}
 #endif
             }
             else
@@ -1469,23 +1571,23 @@ void playMZF()
         if (led_period & 256) // the control led is alternated every 256 bits processed
         {
             led = !led; // toggle the signal level of the LED indicator
-            digitalWrite(MZT_LO, led);
+			set_port_bit(MZT_LO, led);
         }
     }
 
-    digitalWrite(MZT_LO, LOW); // it's over, no more led.
+	set_port_bit(MZT_LO, 0); // it's over, no more led.
 
-    digitalWrite(MZT_CS, HIGH); // reset the /SENSE signal to 1
+	set_port_bit(MZT_CS, 1); // reset the /SENSE signal to 1
 
     osp.stop();
-    osp.setLevel(LOW);
+    osp.setLevel(0);
 }
 
 #endif
 
 void setup()
 {
-    osp.setup(level);
+    osp.setup(0);
 
     Serial.begin(115200);
 
@@ -1498,8 +1600,8 @@ void setup()
     pinMode(MZT_MI, INPUT_PULLUP);
     pinMode(MZT_LO, OUTPUT);
 
-    digitalWrite(MZT_CS, HIGH); // signal /SENSE à 1 (lecteur non disponible)
-    digitalWrite(MZT_LO, LOW);  // témoin led éteint
+	set_port_bit(MZT_CS, 1); // signal /SENSE à 1 (lecteur non disponible)
+	set_port_bit(MZT_LO, 0); // témoin led éteint
 
     sd_ready = sd.begin(SD0_SS, SPI_FULL_SPEED);
 
