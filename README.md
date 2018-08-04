@@ -76,7 +76,7 @@ Wire up as above, and program the Arduino using the IDE.
 
 The following picture is showing how to connect Arduino to 8255:  
 ![mz-700 - 8255 <-> Arduino](https://user-images.githubusercontent.com/56785/42876668-a6c55d26-8a87-11e8-8afd-9b2e94d2cd26.png)
-Note: you must disregard the blue connection (CMT SCK) as it is a work in progress and may not be functional or unsafe.
+Note: you must disregard the blue connection (CMT SCK) as it is now handled through the green connection (CMT SENSE).
 
 Drop some MZF/M12/MZT files onto a FAT32 formatted SD card, plug it into the sd2mzcmt, and power on. For now, only the fast tape data mode is supported. Ultra-fast mode is a work in progress. 
 
@@ -92,12 +92,12 @@ Tool mzf2lep can convert a MZF/MZT/M12 file into a LEP file in five ways:
 
 ## Issues
 
-WAV file can be hardly supported because of the necessary speed reading SD. Since WAV files tend to be 44.1 KHz, Arduino cannot handle it.
+WAV file is supported but may be buggy with big program to load.
 
-LEP file is not working any longer. The algorithm may need a rewrite or can be deprecated. The only interest is for a program needing to read severals blocks. Maybe the same thing can be handled through a MZT file (with multiple data blocks) by listening to MOTOR signal to separate block readings. But unlike LEP, there is no way to say whether the next block is a header block or a data block.
+LEP file is supported. Suffixes .LEP and L16 are for time resolution 16µs and L50 for 50µs (As the original LEp from SDLEP-READER - Daniel Coulon). The only interest is for a program needing to read severals blocks. Maybe the same thing can be handled through a MZT file (with multiple data blocks) by listening to MOTOR signal to separate block readings. But unlike LEP, there is no way to say whether the next block is a header block or a data block.
 
 Some programs are a set of blocks in the tape: the first program will read the rest in one or several blocks. Right now, MZF, M12 and MZT don't handle them correctly (no indication whether the next block is a header or a data so you can emit the right prolog). Maybe defining a new binary file with those indication may help to allow reading multiple data. 
 
-Turbo x4 was available through LEP files. As LEP format may be deprecated, it is unclear whether turbo modes will be handled in the future.
+Turbo x2, x3 and x4 are available through WAV/LEP files built by MZF2LEP tool. Turbo x4 may not work perfect with big program to load.
 
-An Ultrafast mode is a work in progress, but it appears that you cannot use SENSE signal as a serial clock that you can toggle it quickly as it is not a square signal and can ask for around 3ms until the signal change is seen by the 8255. So I am looking for a way to connect SCK straight to PC4 (8255) to get a square signal here when transfering in ultra fast mode.  
+An Ultra-fast mode is provided with MZF-like files to allow around 20000 baud transfer You must press `RIGHT` button to toggle Ultra-fast mode (disabled by default).  
