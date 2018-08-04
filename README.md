@@ -82,6 +82,9 @@ Drop some MZF/M12/MZT files onto a FAT32 formatted SD card, plug it into the sd2
 
 An Ultra-fast mode is provided with MZF-like files to allow around 20000 baud transfer. You must press `RIGHT` button to toggle Ultra-fast mode (disabled by default).  
 
+![ultra-fast mode](https://user-images.githubusercontent.com/56785/43679133-2cf8ead4-9820-11e8-97a8-876965b69e71.jpg)
+Legend: `*` means the MZ reads the READ bit and `><` means Arduino is setting the next READ bit.
+
 ## Old usage
 Drop some LEP files (converted MZF Files through mzf2lep tool) onto a FAT32 formatted SD card, plug it into the sd2mzcmt, and power on.
 
