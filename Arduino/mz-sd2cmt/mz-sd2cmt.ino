@@ -79,8 +79,9 @@ const auto mask_MZT_LO = digitalPinToBitMask(MZT_LO);
 #define ENTRY_UNK       0
 #define ENTRY_DIR       1
 #define ENTRY_LEP       2 // WAV-like file with 50µs/16us resolution where a byte encodes an edge change after a period
-#define ENTRY_MZF       3 // well-known binary format which includes a 128-byte header block and a data block (MZF/M12).
-#define ENTRY_MZT       4 // may contain more than one 128-byte header and one data block.
+#define ENTRY_WAV       3 // WAV file
+#define ENTRY_MZF       4 // well-known binary format which includes a 128-byte header block and a data block (MZF/M12).
+#define ENTRY_MZT       5 // may contain more than one 128-byte header and one data block.
 
 #define SPEED_NORMAL    0 // SHARP PWM system (MZ-700/800) 
 #define SPEED_ULTRAFAST 1
@@ -430,6 +431,14 @@ bool checkForLEP(char *filename)
 		!!strstr(ext, ".lep");
 }
 
+bool checkForWAV(char *filename)
+{
+	auto ext = strlwr(filename + (strlen(filename) - 4));
+
+	return
+		!!strstr(ext, ".wav");
+}
+
 bool checkForMZF(char *filename)
 {
     auto ext = strlwr(filename + (strlen(filename) - 4));
@@ -628,7 +637,11 @@ void fetchEntry(int16_t new_index)
         {
             entry_type = ENTRY_LEP;
         }
-        else if (checkForMZF(lfn))
+		else if (checkForWAV(lfn))
+		{
+			entry_type = ENTRY_WAV;
+		}
+		else if (checkForMZF(lfn))
         {
             entry_type = ENTRY_MZF;
         }
@@ -763,7 +776,8 @@ void selectPressed()
         break;
 
         case ENTRY_LEP:
-        case ENTRY_MZF:
+		case ENTRY_WAV:
+		case ENTRY_MZF:
         {
             displayStartPlayingMessage();
 
@@ -771,9 +785,11 @@ void selectPressed()
 
             unsigned long start_time = millis();
 
-            if (entry_type == ENTRY_LEP)
+            /**/ if (entry_type == ENTRY_LEP)
                 playLEP();
-            else
+			else if (entry_type == ENTRY_WAV)
+				playWAV();
+			else
                 playMZF();
 
             unsigned long stop_time = millis();
@@ -911,7 +927,663 @@ void playLEP()
 	osp.stop();
 }
 
-#if 0
+/// This function plays a WAV file.
+void playWAV()
+{
+	unsigned long period, period1, period0; // half-pulse period, mark pulse period, space pulse period 
+	bool          led = false;              // led indicating the frequency of reading data
+	char          prev = 0, data, next = 0; // LEP bytes read from the SD
+	unsigned long count = 0;                // number of LEP bytes read progressively
+	unsigned long led_period = 0;           // blinking period for 512 bytes LEP read
+	unsigned long total = entry.fileSize(); // total number of LEP bytes to read
+	unsigned long old_progress = -1;
+	unsigned long new_progress = 0;
+
+	canceled = true;
+
+	union
+	{
+		struct
+		{
+			char     id[4];
+			uint32_t size;
+			char     data[4];
+		} riff; // riff chunk
+		struct
+		{
+			uint16_t compress;
+			uint16_t channels;
+			uint32_t sampleRate;
+			uint32_t bytesPerSecond;
+			uint16_t blockAlign;
+			uint16_t bitsPerSample;
+			uint16_t extraBytes;
+		} fmt; // fmt data
+	} buffer;
+
+	// must start with WAVE header
+	if (entry.read(&buffer, 12) != 12			||
+		strncmp(buffer.riff.id,   "RIFF", 4)	||
+		strncmp(buffer.riff.data, "WAVE", 4))
+	{
+		Serial.println(F("WAV: No header!"));
+		return;
+	}
+
+	// next chunk must be fmt
+	if (entry.read(&buffer, 8) != 8				||
+		strncmp(buffer.riff.id, "fmt ", 4))
+	{
+		Serial.println(F("WAV: No 'fmt'!"));
+		return;
+	}
+
+	// fmt chunk size must be 16 or 18
+	auto size = buffer.riff.size;
+	if (size == 16 || size == 18)
+	{
+		if (entry.read(&buffer, size) != (int16_t)size)
+		{
+			Serial.println(F("WAV: Invalid 'fmt'!"));
+			return;
+		}
+	}
+	else
+	{
+		buffer.fmt.compress = 0;
+	}
+
+	if (buffer.fmt.compress != 1 || (size == 18 && buffer.fmt.extraBytes != 0))
+	{
+		Serial.println(F("WAV: Compression not supported!"));
+		return;
+	}
+
+	if (buffer.fmt.channels > 1)
+	{
+		Serial.println(F("WAV: Not mono!"));
+		return;
+	}
+
+	if (buffer.fmt.bitsPerSample != 8)
+	{
+		Serial.println(F("WAV: Not 8 bits per sample!"));
+		return;
+	}
+
+	unsigned long wav_rate = buffer.fmt.sampleRate;
+
+	canceled = false;
+
+	set_port_bit(MZT_LO, led); // led light off initially
+
+	set_port_bit(MZT_CS, 0); // signal /SENSE at 0 to acknowledge the MZ that data is ready
+
+	osp.start();
+	osp.adjustWait(2000000); // foolish MONITOR MOTOR call which waits for 2s
+
+	auto readBytes = [&]()
+	{
+		char accumulator = 0;
+		do
+		{
+			char sample = char(entry.read());
+			++count;
+			accumulator += (sample < 0) ? -1 : (sample > 0) ? 1 : 0;
+		}
+		while (0x80 & (char(-entry.peek()) ^ accumulator)); // repeat until the signs of sample and accumulator differ
+		
+		return accumulator;
+	};
+
+	while (count < total) // read all the WAV bytes from the file
+	{
+		if (get_port_bit(MZT_MI) == 0) // MOTOR at 0, pause
+		{
+			set_port_bit(MZT_LO, 0); // LED off
+
+			osp.stop();
+
+			displayPausingMessage();
+
+			while (get_port_bit(MZT_MI) == 0) // as long as MOTOR does not resume
+			{
+				if (Serial.available() || readButtons() == BTN_S) // but if you ask to cancel
+				{
+					canceled = true;
+					set_port_bit(MZT_CS, 1);  // the signal /SENSE reset to 1
+					return; // leave totally
+				}
+			}
+
+			displayResumePlayingMessage();
+
+			osp.start();
+			osp.adjustWait(2000000); // foolish MONITOR MOTOR call which waits for 2s
+		}
+
+		if (next) // the following samples are immediately available
+		{
+			data = next; // take it
+			next = 0;
+		}
+		else
+		{
+			data = readBytes(); // read the samples of the same sign
+
+			if (data < 0) // if it is a mark period
+			{
+				if (count < total)
+				{
+					next = readBytes(); // read in advance the following samples
+
+					new_progress = (5 * 4 * count) / total;
+					if (old_progress != new_progress)
+					{
+						displayProgressBar(new_progress);
+
+						old_progress = new_progress;
+					}
+				}
+			}
+		}
+
+		/**/ if (data == 0)
+		{
+			/**/ if (prev < 0) period1 += 127; // very long period ...
+			else if (prev > 0) period0 += 127; // very long period ...
+		}
+		else if (data < 0)
+		{
+			period1 = -data; // in absolute value
+			prev = data;
+		}
+		else
+		{
+			period0 = +data; // in absolute value
+			prev = data;
+
+			osp.wait();
+			osp.fire(period1 * 1000000 / wav_rate, (period1 + period0) * 1000000 / wav_rate); // and we update the level output DATA IN
+
+			period1 = 0;
+			period0 = 0;
+		}
+
+		++led_period;
+
+		if (led_period & 512) // the control led is alternated every 512 LEP bytes processed
+		{
+			led = !led; // toggle the signal level of the LED indicator
+			set_port_bit(MZT_LO, led);
+		}
+	}
+
+	set_port_bit(MZT_LO, 0); // it's over, no more led.
+	set_port_bit(MZT_CS, 1); // reset the /SENSE signal to 1
+
+	osp.stop();
+}
+
+enum LegacyStep
+{
+	SHARP_PWM_BEGIN,
+
+	// GAP
+	SHARP_PWM_GAP, // 100 short pulses
+
+	// TAPEMARK
+	SHARP_PWM_TMl, // 40|20 long pulses
+	SHARP_PWM_TM2, // 40|20 short pulses
+	SHARP_PWM_TM3, // 1 long pulse
+
+	// BYTE BLOCK
+	SHARP_PWM_BB1, // (128|n) read byte
+	SHARP_PWM_BB2, // (128|n) x 8 short or long pulses
+	SHARP_PWM_BB3, // (128|n) x 2 long pulse
+
+	// CHECKSUM
+	SHARP_PWM_CS1, // 2 x 8 short or long pulses
+	SHARP_PWM_CS2, // 2 x 1 long pulse
+	SHARP_PWM_CS3, // 1 long pulse
+
+	SHARP_PWM_WAIT,
+
+	SHARP_PWM_ULTRAFAST,
+
+	SHARP_PWM_END
+};
+
+#define SERIAL_PLAYING_MZF 0
+
+#if 1
+
+/// This function plays a MZF file in legacy mode.
+void playMZF()
+{
+	unsigned long checksum;
+	unsigned long period1, period0;         // half-pulse period (mark, space) 
+	unsigned long last_edge;                // elapsed time since the last rising / falling edge
+	bool          led = false;              // led indicating the frequency of reading data
+	char          data;                     // LEP bytes read from the SD
+	unsigned long count = 0;                // number of bytes read progressively
+	unsigned long led_period = 0;           // blinking period for 512 bytes read
+	unsigned long total = entry.fileSize(); // total number of bytes to read
+	unsigned long fsize = total;
+	unsigned long old_progress = -1;
+	unsigned long new_progress = 0;
+	unsigned long loop;
+	LegacyStep    step = SHARP_PWM_BEGIN;
+	bool          header = true;
+	char          jumper_buffer[12];
+
+	const unsigned long sp1 = 240;       // short period for signal 1
+	const unsigned long lp1 = 440;       // long period for signal 1
+	const unsigned long sp0 = 480 - sp1; // short period for signal 0
+	const unsigned long lp0 = 680 - lp1; // long period for signal 0
+
+	canceled = false;
+
+	osp.start();
+	osp.adjustWait(2000000); // 2s
+
+	set_port_bit(MZT_LO, led); // led light off initially
+
+	set_port_bit(MZT_CS, 0); // signal /SENSE at 0 to acknowledge the MZ that data is ready
+
+	if (total > 128)
+	{
+		if (entry.read(header_buffer, 128) != 128)
+		{
+			canceled = true;
+			step = SHARP_PWM_END;
+		}
+		else
+		{
+			total =
+				(((unsigned long)header_buffer[0x12]) & 255) +
+				(((unsigned long)header_buffer[0x13]) & 255) * 256;
+
+			if (header_buffer[0x00] == 1 && ultrafast_enabled)
+			{
+				Serial.println("Ultrafast mode!");
+
+				ultrafast = true;
+
+				jumper_buffer[0x00] = 0x01;					// 01 xx xx        	ld		bc,$xxxx
+				jumper_buffer[0x01] = header_buffer[0x12];
+				jumper_buffer[0x02] = header_buffer[0x13];
+				jumper_buffer[0x03] = 0x21;					// 21 yy yy        	ld		hl,$yyyy
+				jumper_buffer[0x04] = header_buffer[0x14];
+				jumper_buffer[0x05] = header_buffer[0x15];
+				jumper_buffer[0x06] = 0x11;					// 11 zz zz        	ld		de,$zzzz
+				jumper_buffer[0x07] = header_buffer[0x16];
+				jumper_buffer[0x08] = header_buffer[0x17];
+				jumper_buffer[0x09] = 0xC3;					// C3 08 11        	jp		0x1108
+				jumper_buffer[0x0A] = 0x08;
+				jumper_buffer[0x0B] = 0x11;
+
+				header_buffer[0x12] = sizeof(jumper_buffer) & 255;
+				header_buffer[0x13] = 0x00;
+				header_buffer[0x16] = header_buffer[0x14];
+				header_buffer[0x17] = header_buffer[0x15];
+
+				for (size_t i = 0; i < sizeof(loader_buffer); ++i)
+				{
+					header_buffer[0x18 + i] = loader_buffer[i];
+				}
+			}
+		}
+	}
+
+	while (step != SHARP_PWM_END)
+	{
+		if (step != SHARP_PWM_ULTRAFAST && get_port_bit(MZT_MI) == 0) // MOTOR at 0, pause
+		{
+			bool multiple_data = entry.available() != 0;
+
+			if (!header && ultrafast)
+			{
+				loop = total * 8;
+
+				step = SHARP_PWM_ULTRAFAST;
+
+				set_port_bit(MZT_CS, 1);
+
+				osp.setLevel(1);
+
+				delay(100);
+
+				continue;
+			}
+
+			if (header || multiple_data)
+			{
+				osp.stop();
+
+				set_port_bit(MZT_LO, 0); // LED off
+
+				Serial.print(F("Waiting for motor on... "));
+
+				displayPausingMessage();
+
+				while (get_port_bit(MZT_MI) == 0) // as long as MOTOR does not resume
+				{
+					if (Serial.available() || readButtons() == BTN_S) // but if you ask to cancel
+					{
+						canceled = true;
+						set_port_bit(MZT_CS, 1);  // the signal /SENSE reset to 1
+
+						return; // leave totally
+					}
+				}
+
+				Serial.println(F("Done!"));
+
+				displayResumePlayingMessage();
+
+				if (!header)
+				{
+					total = entry.available();
+
+					Serial.print(F("Secondary data block size: "));
+					Serial.println(total);
+				}
+
+				osp.start();
+				osp.adjustWait(2000000); // 2s
+
+				header = false;
+				step = SHARP_PWM_BEGIN;
+			}
+			else
+			{
+				step = SHARP_PWM_END;
+
+				continue;
+			}
+		}
+
+		switch (step)
+		{
+		case SHARP_PWM_BEGIN:
+			loop = 100;
+			step = SHARP_PWM_GAP;
+
+		case SHARP_PWM_GAP:
+			period1 = sp1;
+			period0 = sp0;
+			if (loop == 0)
+			{
+				step = SHARP_PWM_TMl;
+				loop = header ? 40 : 20;
+			}
+			--loop;
+			break;
+
+		case SHARP_PWM_TMl:
+			period1 = lp1;
+			period0 = lp0;
+			if (loop == 0)
+			{
+				step = SHARP_PWM_TM2;
+				loop = header ? 40 : 20;
+			}
+			--loop;
+			break;
+
+		case SHARP_PWM_TM2:
+			period1 = sp1;
+			period0 = sp0;
+			if (loop == 0)
+			{
+				step = SHARP_PWM_TM3;
+				loop = 1;
+			}
+			--loop;
+			break;
+
+		case SHARP_PWM_TM3:
+			period1 = lp1;
+			period0 = lp0;
+			if (loop == 0)
+			{
+				step = SHARP_PWM_BB1;
+				loop = header ? (128 * 8) : ultrafast ? (sizeof(jumper_buffer) * 8) : (total * 8);
+				checksum = 0;
+			}
+			--loop;
+			break;
+
+		case SHARP_PWM_BB1:
+			data = header ? header_buffer[count] : ultrafast ? jumper_buffer[count - 128] : entry.read();
+			++count;
+			period1 = lp1;
+			period0 = lp0;
+			step = SHARP_PWM_BB2;
+			break;
+
+		case SHARP_PWM_BB2:
+			if (loop)
+			{
+				if ((loop & 7) == 0)
+				{
+					step = SHARP_PWM_BB1;
+				}
+			}
+			else
+			{
+				step = SHARP_PWM_CS1;
+				loop = 2 * 8;
+			}
+			if (data & 0x80)
+			{
+				period1 = lp1;
+				period0 = lp0;
+				++checksum;
+			}
+			else
+			{
+				period1 = sp1;
+				period0 = sp0;
+			}
+			data <<= 1;
+			--loop;
+			break;
+
+		case SHARP_PWM_BB3:
+			period1 = lp1;
+			period0 = lp0;
+			step = SHARP_PWM_BB1;
+			break;
+
+		case SHARP_PWM_CS1:
+			period1 = lp1;
+			period0 = lp0;
+			step = SHARP_PWM_CS2;
+			break;
+
+		case SHARP_PWM_CS2:
+			if (loop)
+			{
+				if ((loop & 7) == 0)
+				{
+					step = SHARP_PWM_CS1;
+				}
+			}
+			else
+			{
+				step = SHARP_PWM_CS3;
+				loop = 2;
+			}
+			if (checksum & 0x8000)
+			{
+				period1 = lp1;
+				period0 = lp0;
+			}
+			else
+			{
+				period1 = sp1;
+				period0 = sp0;
+			}
+			checksum <<= 1;
+			--loop;
+			break;
+
+		case SHARP_PWM_CS3:
+			period1 = lp1;
+			period0 = lp0;
+			if (loop == 0)
+			{
+				step = SHARP_PWM_WAIT;
+			}
+			--loop;
+			break;
+
+		case SHARP_PWM_WAIT:
+			continue;
+
+		case SHARP_PWM_ULTRAFAST:
+			if (loop != 0)
+			{
+				//           _________     
+				// CS  _____/         \____ : Arduino changes SENSE value so MZ can retrieve the current bit 
+				//     _____           ____
+				// PC4      \_________/     : MZ watches PC4 edge changes set by Arduino
+				//     _  __ _____  __ ____
+				// PC5 _><__*_____><__*____ : MZ retrieves PC5 (*) at each PC4 edge change set by Arduino
+				//              _________
+				// PC1 ________/         \_ : MZ acknowledges Arduino so the latter can send the next bit 
+				//     ________           _
+				// DI          \_________/  : Arduino watches SI edge changes so it can send the next bit 
+
+#if 1
+				size_t n = loop / 8;
+				if (n = entry.read(header_buffer, (n <= sizeof(header_buffer)) ? n : sizeof(header_buffer)))
+				{
+					for (size_t i = 0; i < n; ++i)
+					{
+						//char data = header_buffer[i];
+						//data = (data << 2) | ((data >> 6) & 0x03);
+						char data = __builtin_avr_insert_bits(0x54321076, header_buffer[i], 0);
+						for (size_t j = 4; j; --j)
+						{
+							while (get_port_bit(MZT_DI) != 0);
+
+							osp.setLevel(!!(data & 0x80));
+
+							set_port_bit(MZT_CS, 0);
+
+							while (get_port_bit(MZT_DI) == 0);
+
+							osp.setLevel(!!(data & 0x40));
+
+							set_port_bit(MZT_CS, 1);
+
+							data <<= 2;
+						}
+					}
+					count += n;
+					loop -= n * 8;
+				}
+#elif 1 // optimization test
+				size_t n = loop / 8;
+				{
+					auto delta = micros();
+
+					for (size_t i = 0; i < n; ++i)
+					{
+						for (size_t j = 4; j; --j)
+						{
+							while (get_port_bit(MZT_DI) != 0);
+
+							osp.setLevel(0);
+
+							set_port_bit(MZT_CS, 0);
+
+							while (get_port_bit(MZT_DI) == 0);
+
+							osp.setLevel(1);
+
+							set_port_bit(MZT_CS, 1);
+
+							data <<= 2;
+
+						}
+					}
+
+					Serial.println(micros() - delta);
+
+					count = n;
+					loop = 0;
+				}
+#else
+				char data = entry.read();
+				data = (data << 2) | ((data >> 6) & 0x03);
+				++count;
+				for (size_t j = 4; j; --j)
+				{
+					while (digitalRead(MZT_DI) != LOW);
+					osp.setLevel((data & 0x80) ? HIGH : LOW);
+					digitalWrite(MZT_CS, LOW);
+					while (digitalRead(MZT_DI) != HIGH);
+					osp.setLevel((data & 0x40) ? HIGH : LOW);
+					digitalWrite(MZT_CS, HIGH);
+					data <<= 2;
+					loop -= 2;
+				}
+#endif
+			}
+			else
+			{
+				step = SHARP_PWM_END;
+			}
+			break;
+
+		default:
+			step = SHARP_PWM_END;
+			canceled = true;
+
+		case SHARP_PWM_END:
+			continue;
+		}
+
+		if (count < fsize)
+		{
+			new_progress = (5 * 4 * count) / fsize;
+			if (old_progress != new_progress)
+			{
+				displayProgressBar(new_progress);
+
+				old_progress = new_progress;
+			}
+		}
+
+		/**/ if (step < SHARP_PWM_ULTRAFAST)
+		{
+			osp.wait();
+			osp.fire(period1, period1 + period0);
+		}
+
+		++led_period;
+
+		if (led_period & 256) // the control led is alternated every 256 bits processed
+		{
+			led = !led; // toggle the signal level of the LED indicator
+			set_port_bit(MZT_LO, led);
+		}
+	}
+
+	set_port_bit(MZT_LO, 0); // it's over, no more led.
+
+	set_port_bit(MZT_CS, 1); // reset the /SENSE signal to 1
+
+	osp.stop();
+	osp.setLevel(0);
+}
+
+#else
+
 void playMZF()
 {
     playMZF_Legacy_Procedural();
@@ -1122,465 +1794,6 @@ retry:
 
     osp.stop();
     digitalWrite(MZT_CS, HIGH); // reset the /SENSE signal to 1
-}
-#else
-
-//////////////////////////////////////////////////////////////////////
-
-
-enum LegacyStep
-{
-    SHARP_PWM_BEGIN,
-
-    // GAP
-    SHARP_PWM_GAP, // 100 short pulses
-
-    // TAPEMARK
-    SHARP_PWM_TMl, // 40|20 long pulses
-    SHARP_PWM_TM2, // 40|20 short pulses
-    SHARP_PWM_TM3, // 1 long pulse
-
-    // BYTE BLOCK
-    SHARP_PWM_BB1, // (128|n) read byte
-    SHARP_PWM_BB2, // (128|n) x 8 short or long pulses
-    SHARP_PWM_BB3, // (128|n) x 2 long pulse
-
-    // CHECKSUM
-    SHARP_PWM_CS1, // 2 x 8 short or long pulses
-    SHARP_PWM_CS2, // 2 x 1 long pulse
-    SHARP_PWM_CS3, // 1 long pulse
-
-    SHARP_PWM_WAIT,
-
-    SHARP_PWM_ULTRAFAST,
-
-    SHARP_PWM_END
-};
-
-#define SERIAL_PLAYING_MZF 0
-
-/// This function plays a MZF file in legacy mode.
-void playMZF()
-{
-    unsigned long checksum;
-    unsigned long period1, period0;         // half-pulse period (mark, space) 
-    unsigned long last_edge;                // elapsed time since the last rising / falling edge
-    bool          led = false;              // led indicating the frequency of reading data
-    char          data;                     // LEP bytes read from the SD
-    unsigned long count = 0;                // number of bytes read progressively
-    unsigned long led_period = 0;           // blinking period for 512 bytes read
-    unsigned long total = entry.fileSize(); // total number of bytes to read
-    unsigned long fsize = total;
-    unsigned long old_progress = -1;
-    unsigned long new_progress = 0;
-    unsigned long loop;
-    LegacyStep    step = SHARP_PWM_BEGIN;
-    bool          header = true;
-    char          jumper_buffer[12];
-
-    const unsigned long sp1 = 240;       // short period for signal 1
-    const unsigned long lp1 = 440;       // long period for signal 1
-    const unsigned long sp0 = 480 - sp1; // short period for signal 0
-    const unsigned long lp0 = 680 - lp1; // long period for signal 0
-
-    canceled = false;
-
-    osp.start();
-    osp.adjustWait(2000000); // 2s
-
-	set_port_bit(MZT_LO, led); // led light off initially
-
-	set_port_bit(MZT_CS, 0); // signal /SENSE at 0 to acknowledge the MZ that data is ready
-
-    if (total > 128)
-    {
-        if (entry.read(header_buffer, 128) != 128)
-        {
-            canceled = true;
-            step = SHARP_PWM_END;
-        }
-        else
-        {
-            total =
-                (((unsigned long)header_buffer[0x12]) & 255) +
-                (((unsigned long)header_buffer[0x13]) & 255) * 256;
-
-            if (header_buffer[0x00] == 1 && ultrafast_enabled)
-            {
-                Serial.println("Ultrafast mode!");
-
-                ultrafast = true;
-
-                jumper_buffer[0x00] = 0x01;					// 01 xx xx        	ld		bc,$xxxx
-                jumper_buffer[0x01] = header_buffer[0x12];
-                jumper_buffer[0x02] = header_buffer[0x13];
-                jumper_buffer[0x03] = 0x21;					// 21 yy yy        	ld		hl,$yyyy
-                jumper_buffer[0x04] = header_buffer[0x14];
-                jumper_buffer[0x05] = header_buffer[0x15];
-                jumper_buffer[0x06] = 0x11;					// 11 zz zz        	ld		de,$zzzz
-                jumper_buffer[0x07] = header_buffer[0x16];
-                jumper_buffer[0x08] = header_buffer[0x17];
-                jumper_buffer[0x09] = 0xC3;					// C3 08 11        	jp		0x1108
-                jumper_buffer[0x0A] = 0x08;
-                jumper_buffer[0x0B] = 0x11;
-
-                header_buffer[0x12] = sizeof(jumper_buffer) & 255;
-                header_buffer[0x13] = 0x00;
-                header_buffer[0x16] = header_buffer[0x14];
-                header_buffer[0x17] = header_buffer[0x15];
-
-                for (size_t i = 0; i < sizeof(loader_buffer); ++i)
-                {
-                    header_buffer[0x18 + i] = loader_buffer[i];
-                }
-            }
-        }
-    }
-
-    while (step != SHARP_PWM_END)
-    {
-        if (step != SHARP_PWM_ULTRAFAST && get_port_bit(MZT_MI) == 0) // MOTOR at 0, pause
-        {
-            bool multiple_data = entry.available() != 0;
-
-            if (!header && ultrafast)
-            {
-                loop = total * 8;
-
-                step = SHARP_PWM_ULTRAFAST;
-
-                set_port_bit(MZT_CS, 1);
-
-                osp.setLevel(1);
-
-                delay(100);
-
-                continue;
-            }
-
-            if (header || multiple_data)
-            {
-                osp.stop();
-
-				set_port_bit(MZT_LO, 0); // LED off
-
-                Serial.print(F("Waiting for motor on... "));
-
-                displayPausingMessage();
-
-                while (get_port_bit(MZT_MI) == 0) // as long as MOTOR does not resume
-                {
-                    if (Serial.available() || readButtons() == BTN_S) // but if you ask to cancel
-                    {
-                        canceled = true;
-						set_port_bit(MZT_CS, 1);  // the signal /SENSE reset to 1
-
-                        return; // leave totally
-                    }
-                }
-
-                Serial.println(F("Done!"));
-
-                displayResumePlayingMessage();
-
-                if (!header)
-                {
-                    total = entry.available();
-
-                    Serial.print(F("Secondary data block size: "));
-                    Serial.println(total);
-                }
-
-                osp.start();
-                osp.adjustWait(2000000); // 2s
-
-                header = false;
-                step = SHARP_PWM_BEGIN;
-            }
-            else
-            {
-                step = SHARP_PWM_END;
-
-                continue;
-            }
-        }
-
-        switch (step)
-        {
-        case SHARP_PWM_BEGIN:
-            loop = 100;
-            step = SHARP_PWM_GAP;
-
-        case SHARP_PWM_GAP:
-            period1 = sp1;
-            period0 = sp0;
-            if (loop == 0)
-            {
-                step = SHARP_PWM_TMl;
-                loop = header ? 40 : 20;
-            }
-            --loop;
-            break;
-
-        case SHARP_PWM_TMl:
-            period1 = lp1;
-            period0 = lp0;
-            if (loop == 0)
-            {
-                step = SHARP_PWM_TM2;
-                loop = header ? 40 : 20;
-            }
-            --loop;
-            break;
-
-        case SHARP_PWM_TM2:
-            period1 = sp1;
-            period0 = sp0;
-            if (loop == 0)
-            {
-                step = SHARP_PWM_TM3;
-                loop = 1;
-            }
-            --loop;
-            break;
-
-        case SHARP_PWM_TM3:
-            period1 = lp1;
-            period0 = lp0;
-            if (loop == 0)
-            {
-                step = SHARP_PWM_BB1;
-                loop = header ? (128 * 8) : ultrafast ? (sizeof(jumper_buffer) * 8) : (total * 8);
-                checksum = 0;
-            }
-            --loop;
-            break;
-
-        case SHARP_PWM_BB1:
-            data = header ? header_buffer[count] : ultrafast ? jumper_buffer[count - 128] : entry.read();
-            ++count;
-            period1 = lp1;
-            period0 = lp0;
-            step = SHARP_PWM_BB2;
-            break;
-
-        case SHARP_PWM_BB2:
-            if (loop)
-            {
-                if ((loop & 7) == 0)
-                {
-                    step = SHARP_PWM_BB1;
-                }
-            }
-            else
-            {
-                step = SHARP_PWM_CS1;
-                loop = 2 * 8;
-            }
-            if (data & 0x80)
-            {
-                period1 = lp1;
-                period0 = lp0;
-                ++checksum;
-            }
-            else
-            {
-                period1 = sp1;
-                period0 = sp0;
-            }
-            data <<= 1;
-            --loop;
-            break;
-
-        case SHARP_PWM_BB3:
-            period1 = lp1;
-            period0 = lp0;
-            step = SHARP_PWM_BB1;
-            break;
-
-        case SHARP_PWM_CS1:
-            period1 = lp1;
-            period0 = lp0;
-            step = SHARP_PWM_CS2;
-            break;
-
-        case SHARP_PWM_CS2:
-            if (loop)
-            {
-                if ((loop & 7) == 0)
-                {
-                    step = SHARP_PWM_CS1;
-                }
-            }
-            else
-            {
-                step = SHARP_PWM_CS3;
-                loop = 2;
-            }
-            if (checksum & 0x8000)
-            {
-                period1 = lp1;
-                period0 = lp0;
-            }
-            else
-            {
-                period1 = sp1;
-                period0 = sp0;
-            }
-            checksum <<= 1;
-            --loop;
-            break;
-
-        case SHARP_PWM_CS3:
-            period1 = lp1;
-            period0 = lp0;
-            if (loop == 0)
-            {
-                step = SHARP_PWM_WAIT;
-            }
-            --loop;
-            break;
-
-        case SHARP_PWM_WAIT:
-            continue;
-
-        case SHARP_PWM_ULTRAFAST:
-            if (loop != 0)
-            {
-                //           _________     
-                // CS  _____/         \____ : Arduino changes SENSE value so MZ can retrieve the current bit 
-                //     _____           ____
-                // PC4      \_________/     : MZ watches PC4 edge changes set by Arduino
-                //     _  __ _____  __ ____
-                // PC5 _><__*_____><__*____ : MZ retrieves PC5 (*) at each PC4 edge change set by Arduino
-                //              _________
-                // PC1 ________/         \_ : MZ acknowledges Arduino so the latter can send the next bit 
-                //     ________           _
-                // DI          \_________/  : Arduino watches SI edge changes so it can send the next bit 
-
-#if 1
-                size_t n = loop / 8;
-                if (n = entry.read(header_buffer, (n <= sizeof(header_buffer)) ? n : sizeof(header_buffer)))
-                {
-					for (size_t i = 0; i < n; ++i)
-                    {
-						//char data = header_buffer[i];
-                        //data = (data << 2) | ((data >> 6) & 0x03);
-						char data = __builtin_avr_insert_bits(0x54321076, header_buffer[i], 0);
-                        for (size_t j = 4; j; --j)
-                        {
-							while (get_port_bit(MZT_DI) != 0);
-
-							osp.setLevel(!!(data & 0x80));
-
-							set_port_bit(MZT_CS, 0);
-							
-							while (get_port_bit(MZT_DI) == 0);
-
-							osp.setLevel(!!(data & 0x40));
-                            
-							set_port_bit(MZT_CS, 1);
-
-							data <<= 2;
-                        }
-                    }
-					count += n;
-					loop -= n * 8;
-				}
-#elif 1 // optimization test
-				size_t n = loop / 8;
-				{
-					auto delta = micros();
-
-					for (size_t i = 0; i < n; ++i)
-					{
-						for (size_t j = 4; j; --j)
-						{
-							while (get_port_bit(MZT_DI) != 0);
-
-							osp.setLevel(0);
-
-							set_port_bit(MZT_CS, 0);
-
-							while (get_port_bit(MZT_DI) == 0);
-
-							osp.setLevel(1);
-
-							set_port_bit(MZT_CS, 1);
-
-							data <<= 2;
-
-						}
-					}
-
-					Serial.println(micros() - delta);
-
-					count = n;
-					loop = 0;
-				}
-#else
-				char data = entry.read();
-                data = (data << 2) | ((data >> 6) & 0x03);
-                ++count;
-                for (size_t j = 4; j; --j)
-                {
-					while (digitalRead(MZT_DI) != LOW);
-					osp.setLevel((data & 0x80) ? HIGH : LOW);
-					digitalWrite(MZT_CS, LOW);
-					while (digitalRead(MZT_DI) != HIGH);
-					osp.setLevel((data & 0x40) ? HIGH : LOW);
-					digitalWrite(MZT_CS, HIGH);
-					data <<= 2;
-					loop -= 2;
-				}
-#endif
-            }
-            else
-            {
-                step = SHARP_PWM_END;
-            }
-            break;
-
-        default:
-            step = SHARP_PWM_END;
-            canceled = true;
-
-        case SHARP_PWM_END:
-            continue;
-        }
-
-        if (count < fsize)
-        {
-            new_progress = (5 * 4 * count) / fsize;
-            if (old_progress != new_progress)
-            {
-                displayProgressBar(new_progress);
-
-                old_progress = new_progress;
-            }
-        }
-
-        /**/ if (step < SHARP_PWM_ULTRAFAST)
-        {
-            osp.wait();
-            osp.fire(period1, period1 + period0);
-        }
-
-        ++led_period;
-
-        if (led_period & 256) // the control led is alternated every 256 bits processed
-        {
-            led = !led; // toggle the signal level of the LED indicator
-			set_port_bit(MZT_LO, led);
-        }
-    }
-
-	set_port_bit(MZT_LO, 0); // it's over, no more led.
-
-	set_port_bit(MZT_CS, 1); // reset the /SENSE signal to 1
-
-    osp.stop();
-    osp.setLevel(0);
 }
 
 #endif
