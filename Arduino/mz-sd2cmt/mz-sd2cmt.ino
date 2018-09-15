@@ -836,7 +836,7 @@ void playLEP()
 	osp.start();
 	osp.adjustWait(2000000); // foolish MONITOR MOTOR call which waits for 2s
 
-	while (count < total) // read all the LEP bytes from the file
+	while (entry.available() || next) // read all the LEP bytes from the file
 	{
 		if (get_port_bit(MZT_MI) == 0) // MOTOR at 0, pause
 		{
@@ -908,8 +908,11 @@ void playLEP()
 			osp.wait();
 			osp.fire(period1, period1 + period0); // and we update the level output DATA IN
 
-			period1 = 0;
-			period0 = 0;
+			if (entry.available())
+			{
+				period1 = 0;
+				period0 = 0;
+			}
 		}
 
         ++led_period;
@@ -920,6 +923,10 @@ void playLEP()
 			set_port_bit(MZT_LO, led);
         }
     }
+
+	osp.wait();
+	osp.fire(period1, period1 + period0); // and we update the level output DATA IN
+	osp.wait();
 
 	set_port_bit(MZT_LO, 0); // it's over, no more led.
 	set_port_bit(MZT_CS, 1); // reset the /SENSE signal to 1
@@ -932,9 +939,9 @@ void playWAV()
 {
 	unsigned long period, period1, period0; // half-pulse period, mark pulse period, space pulse period 
 	bool          led = false;              // led indicating the frequency of reading data
-	char          prev = 0, data, next = 0; // LEP bytes read from the SD
-	unsigned long count = 0;                // number of LEP bytes read progressively
-	unsigned long led_period = 0;           // blinking period for 512 bytes LEP read
+	char          prev = 0, data, next = 0; // WAV bytes read from the SD
+	unsigned long count = 0;                // number of WAV bytes read progressively
+	unsigned long led_period = 0;           // blinking period for 512 pulses read
 	unsigned long total = entry.fileSize(); // total number of LEP bytes to read
 	unsigned long old_progress = -1;
 	unsigned long new_progress = 0;
@@ -1029,14 +1036,16 @@ void playWAV()
 		{
 			char sample = char(entry.read());
 			++count;
-			accumulator += (sample < 0) ? -1 : (sample > 0) ? 1 : 0;
+			/**/ if (sample < 0) --accumulator;
+			else if (sample > 0) ++accumulator;
+			else                   accumulator = 0;
 		}
-		while (0x80 & (char(-entry.peek()) ^ accumulator)); // repeat until the signs of sample and accumulator differ
-		
+		while (entry.available() && (0x80 & (char(-entry.peek()) ^ accumulator)));
+
 		return accumulator;
 	};
 
-	while (count < total) // read all the WAV bytes from the file
+	while (entry.available() || next)
 	{
 		if (get_port_bit(MZT_MI) == 0) // MOTOR at 0, pause
 		{
@@ -1073,7 +1082,7 @@ void playWAV()
 
 			if (data < 0) // if it is a mark period
 			{
-				if (count < total)
+				if (entry.available())
 				{
 					next = readBytes(); // read in advance the following samples
 
@@ -1106,8 +1115,11 @@ void playWAV()
 			osp.wait();
 			osp.fire(period1 * 1000000 / wav_rate, (period1 + period0) * 1000000 / wav_rate); // and we update the level output DATA IN
 
-			period1 = 0;
-			period0 = 0;
+			if (entry.available())
+			{
+				period1 = 0;
+				period0 = 0;
+			}
 		}
 
 		++led_period;
@@ -1118,6 +1130,10 @@ void playWAV()
 			set_port_bit(MZT_LO, led);
 		}
 	}
+
+	osp.wait();
+	osp.fire(period1 * 1000000 / wav_rate, (period1 + period0) * 1000000 / wav_rate); // and we update the level output DATA IN
+	osp.wait();
 
 	set_port_bit(MZT_LO, 0); // it's over, no more led.
 	set_port_bit(MZT_CS, 1); // reset the /SENSE signal to 1
