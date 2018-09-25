@@ -87,20 +87,18 @@ An Ultra-fast mode is provided with MZF-like files to allow around 20000 baud tr
 Legend: `*` means the MZ reads the READ bit and `><` means Arduino is setting the next READ bit.
 
 ## Old usage
-Drop some LEP files (converted MZF Files through mzf2lep tool) onto a FAT32 formatted SD card, plug it into the sd2mzcmt, and power on.
+Drop some LEP or WAV files (converted MZF Files through mzf2lep tool) onto a FAT32 formatted SD card, plug it into the mz-sd²cmt, and power on.
 
-Tool mzf2lep can convert a MZF/MZT/M12 file into a LEP file in five ways:
+Tool mzf2lep can convert a MZF/MZT/M12 file into a LEP and/or WAV file in five ways:
 - conventional tape data (2 header blocks followed by 2 data blocks) at 1200 baud
 - fast tape data (shorter gaps, 1 header block followed by a 1 data block)
 - turbo x2 tape data (first turbo loader as a fast tape data then 1 data block read twice as fast)
 - turbo x3 tape data (first turbo loader as a fast tape data then 1 data block read trice as fast)
 - turbo x4 tape data (first turbo loader as a fast tape data then 1 data block read four times as fast)
 
-NOTE: The same usage applies to WAV files.
+Note that WAV files have a limitation: 8-bit mono channel. The frequency can be any, included the usual 44.1 KHz and probably even 48 KHz. Yes, it works on a 16 MHz AVR and probably even on a 8 MHz AVR too.
 
 ## Issues
-
-WAV file is supported but may be buggy with big program to load.
 
 LEP file is supported. Suffixes .LEP and L16 are for time resolution 16µs and L50 for 50µs (As the original LEp from SDLEP-READER - Daniel Coulon). The only interest is for a program needing to read severals blocks. Maybe the same thing can be handled through a MZT file (with multiple data blocks) by listening to MOTOR signal to separate block readings. But unlike LEP, there is no way to say whether the next block is a header block or a data block.
 
