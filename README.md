@@ -75,16 +75,27 @@ LED Pins:
 Wire up as above, and program the Arduino using the IDE.
 
 The following picture is showing how to connect Arduino to 8255:  
-![mz-700 - 8255 <-> Arduino](https://user-images.githubusercontent.com/56785/42876668-a6c55d26-8a87-11e8-8afd-9b2e94d2cd26.png)
-Note: you must disregard the blue connection (CMT SCK) as it is now handled through the green connection (CMT SENSE).
+![mz-700 - 8255 <-> Arduino](https://user-images.githubusercontent.com/56785/47266539-4eb26880-d538-11e8-9fdb-7d2fadc24ca2.png)
+Note: SDI/SDO/SSI/SSO are signals used for Ultra-fast mode.
+- SDI: Serial Data Input, connected to WRITE. Also used to acknowledge Arduino to set the next data bit when MZ reads. 
+- SDO: Serial Data Output, connected to READ. Also used to acknowledge MZ to set the next data bit when Arduino reads.
+- SSI: Serial Synchronisation Input, connected to MOTOR. Only used when MZ writes.
+- SSO: Serial Synchronisation Output, connected to SENSE. Only used when MZ reads.
+
 
 Drop some MZF/M12/MZT files onto a FAT32 formatted SD card, plug it into the mz-sd²cmt, and power on.
 
 An Ultra-fast mode is provided with MZF-like files to allow around 20000 baud transfer. You must press `RIGHT` button to toggle Ultra-fast mode (disabled by default).  
 
+The following picture is showing the ultra-fast protocol when MZ reads:
 ![ultra-fast mode](https://user-images.githubusercontent.com/56785/43679133-2cf8ead4-9820-11e8-97a8-876965b69e71.jpg)
 
 Legend: `*` means the MZ reads the READ bit and `><` means Arduino is setting the next READ bit.
+Notes:
+- CS is also named SSO.
+- PC5 is connected to SDO as the current bit data when MZ reads.
+- PC1 is connected to SDI as a read acknowledge sent by MZ.
+- PC4 is ignored by Arduino when MZ reads. 
 
 ## Old usage
 Drop some LEP or WAV files (converted MZF Files through MZF2LEP tool) onto a FAT32 formatted SD card, plug it into the mz-sd²cmt, and power on.
