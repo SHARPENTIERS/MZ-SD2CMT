@@ -33,8 +33,8 @@ Arduino MEGA Pins:
  RX2  | 17     | ->        | MZCMT READ
  TX1  | 18     | ->        | MZCMT /SENSE
  RX1  | 19     | ->        | MZCMT LED
- .    | 50     | ->        | SD MOSI (SD Card MOSI PIN)
- .    | 51     | <-        | SD MISO (SD Card MI PIN)
+ .    | 50     | <-        | SD MISO (SD Card MISO PIN)
+ .    | 51     | ->        | SD MOSI (SD Card MOSI PIN)
  .    | 52     | ->        | SD SCK  (SD Card SCK PIN)
  .    | 53     | ->        | SD SS   (SD Card slave select)
 
@@ -59,8 +59,8 @@ SD CARD Pins:
  GND  | <-        | ARDUINO GND
 3.3V  | <-        | NC
   5V  | <-        | ARDUINO 5V
-MOSI  | <-        | ARDUINO #50
-MISO  | ->        | ARDUINO #51
+MISO  | ->        | ARDUINO #50
+MOSI  | <-        | ARDUINO #51
  SCK  | <-        | ARDUINO #52
 SDCS  | <-        | ARDUINO #53
 
