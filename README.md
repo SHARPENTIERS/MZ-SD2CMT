@@ -30,7 +30,7 @@ Arduino MEGA Pins:
  .    | 9      | ->        | LCD ENABLE
  RX3  | 15     | <-        | MZCMT WRITE
  TX2  | 16     | <-        | MZCMT MOTOR
- RX2  | 17     | ->        | MZCMT READ
+ OC3C | 3      | ->        | MZCMT READ
  TX1  | 18     | ->        | MZCMT SENSE
  RX1  | 19     | ->        | MZCMT LED
  .    | 50     | <-        | SD MISO (SD Card MISO PIN)
