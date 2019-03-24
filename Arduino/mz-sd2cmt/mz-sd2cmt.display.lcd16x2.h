@@ -11,9 +11,6 @@
 #define LCD_D6        6      // LCD D6
 #define LCD_D7        7      // LCD D7
 
-#define SCROLL_SPEED  250    // Text scroll delay
-#define SCROLL_WAIT   3000   // Delay before scrolling starts
-
 byte icon[8][8] =
 {
 	{
@@ -99,24 +96,23 @@ byte icon[8][8] =
 };
 
 LiquidCrystal lcd(LCD_RS, LCD_EN, LCD_D4, LCD_D5, LCD_D6, LCD_D7);
-byte          scroll_pos = 0;
-unsigned long scroll_time = millis() + SCROLL_WAIT;
-unsigned long progress_size;
+byte          lcd_scroll_pos = 0;
+unsigned long lcd_scroll_time = millis() + SCROLL_WAIT;
 
 struct LCD16x2Display
 {
 	/// This function displays a text on the first line with a horizontal scrolling if necessary.
 	static void scrollText(char* text)
 	{
-		if (scroll_pos < 0)
+		if (lcd_scroll_pos < 0)
 		{
-			scroll_pos = 0;
+			lcd_scroll_pos = 0;
 		}
 		char outtext[17];
 		outtext[0] = entry_type ? (entry_type + 4) : '?';
 		for (int i = 1; i < 16; ++i)
 		{
-			int p = i + scroll_pos - 1;
+			int p = i + lcd_scroll_pos - 1;
 			if (p < strlen(text))
 			{
 				outtext[i] = text[p];
@@ -133,7 +129,10 @@ struct LCD16x2Display
 		lcd.setCursor(0, 0);
 		lcd.print(outtext);
 		lcd.setCursor(0, 1);
-		lcd.print(F("                    "));
+		if (entry_type > ENTRY_DIR)
+			lcd.print(ultrafast_enabled ? F("speed: ultra-fast   ") : F("speed: normal       "));
+		else
+			lcd.print(F("                    "));
 	}
 
 	static void setup()
@@ -156,6 +155,7 @@ struct LCD16x2Display
 	static void displayCode(DisplayCode code)
 	{
 		static unsigned long start_time = millis();
+		static unsigned long old_progress = 0;
 		switch (code)
 		{
 		case DisplayCode::no_sdcard:
@@ -164,21 +164,21 @@ struct LCD16x2Display
 			break;
 
 		case DisplayCode::set_entry_name:
-			scroll_time = millis() + SCROLL_WAIT;
-			scroll_pos = 0;
+			lcd_scroll_time = millis() + SCROLL_WAIT;
+			lcd_scroll_pos = 0;
 			scrollText(lfn);
 			break;
 
 		case DisplayCode::scroll_entry_name:
-			if ((millis() >= scroll_time) && (strlen(lfn) > 15))
+			if ((millis() >= lcd_scroll_time) && (strlen(lfn) > 15))
 			{
-				scroll_time = millis() + SCROLL_SPEED;
+				lcd_scroll_time = millis() + SCROLL_SPEED;
 				scrollText(lfn);
-				++scroll_pos;
-				if (scroll_pos > strlen(lfn))
+				++lcd_scroll_pos;
+				if (lcd_scroll_pos > strlen(lfn))
 				{
-					scroll_pos = 0;
-					scroll_time = millis() + SCROLL_WAIT;
+					lcd_scroll_pos = 0;
+					lcd_scroll_time = millis() + SCROLL_WAIT;
 					scrollText(lfn);
 				}
 			}
@@ -186,11 +186,12 @@ struct LCD16x2Display
 
 		case DisplayCode::startPlaying:
 			lcd.clear();
-			scroll_pos = 0;
+			lcd_scroll_pos = 0;
 			scrollText(lfn);
 			lcd.setCursor(0, 1);
 			lcd.print(F("Playing...[    ]"));
 			start_time = millis();
+			old_progress = 0;
 			break;
 
 		case DisplayCode::stopPlaying:
@@ -201,6 +202,7 @@ struct LCD16x2Display
 				lcd.print(F("Done in "));
 				lcd.print((stop_time - start_time + 999) / 1000);
 				lcd.print(F("s.      "));
+				old_progress = 0;
 			}
 			break;
 
@@ -212,22 +214,31 @@ struct LCD16x2Display
 				lcd.print(F("Canceled in "));
 				lcd.print((cancel_time - start_time + 999) / 1000);
 				lcd.print(F("s.  "));
+				old_progress = 0;
 			}
 			break;
 
 		case DisplayCode::pausePlaying:
 			lcd.setCursor(0, 1);
-			lcd.write(F("Paus"));
+			lcd.print(F("Paus"));
 			break;
 
 		case DisplayCode::resumePlaying:
 			lcd.setCursor(0, 1);
-			lcd.write(F("Play"));
+			lcd.print(F("Play"));
 			break;
 
 		case DisplayCode::updateProgressBar:
-			lcd.setCursor(11 + (progress_size / 5), 1);
-			lcd.write(progress_size % 5);
+			if (progress_size < 5 * 16)
+			{
+				unsigned long new_progress = progress_size * 4 / 16;
+				if (old_progress != new_progress)
+				{
+					lcd.setCursor(11 + (new_progress / 5), 1);
+					lcd.write(new_progress % 5);
+					old_progress = new_progress;
+				}
+			}
 			break;
 
 		default:

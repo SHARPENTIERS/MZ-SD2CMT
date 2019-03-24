@@ -12,6 +12,9 @@ decode_results	irResults;
 struct IRRemoteInput
 {
 	static InputCode previous_code;
+	static size_t    repeated_code;
+	static bool      accepted_code;
+	static size_t    repeat_count;
 
 	// Keyes / Xinda IR Remote Control
 	//////////////////////////////////
@@ -48,7 +51,7 @@ struct IRRemoteInput
 			case 0xFF02FD: // OK
 				Serial.println(" OK");
 				code = InputCode::select;
-				break;
+				goto input_code_accepted;
 			case 0xFF10EF: // 7
 				Serial.println(" 7");
 				break;
@@ -58,7 +61,7 @@ struct IRRemoteInput
 			case 0xFF22DD: // LEFT
 				Serial.println(" LEFT");
 				code = InputCode::left;
-				break;
+				goto input_code_accepted;
 			case 0xFF30CF: // 4
 				Serial.println(" 4");
 				break;
@@ -68,12 +71,6 @@ struct IRRemoteInput
 			case 0xFF42BD: // *
 				Serial.println(" *");
 				break;
-
-				// 2			FF9867
-				// DOWN			FFA857
-				// 3			FFB04F
-				// RIGHT		FFC23D
-
 			case 0xFF4AB5: // 0
 				Serial.println(" 0");
 				break;
@@ -86,7 +83,7 @@ struct IRRemoteInput
 			case 0xFF629D: // UP
 				Serial.println(" UP");
 				code = InputCode::up;
-				break;
+				goto input_code_accepted;
 			case 0xFF6897: // 1
 				Serial.println(" 1");
 				break;
@@ -96,27 +93,47 @@ struct IRRemoteInput
 			case 0xFF9867: // 2
 				Serial.println(" 2");
 				break;
-			case 0xFFA857: // DOWN
+			case 0x00FFA857: // DOWN
 				Serial.println(" DOWN");
 				code = InputCode::down;
-				break;
-			case 0xFFB04F: // 3
+				goto input_code_accepted;
+			case 0x00FFB04F: // 3
 				Serial.println(" 3");
 				break;
-			case 0xFFC23D: // RIGHT
+			case 0x00FFC23D: // RIGHT
 				Serial.println(" RIGHT");
 				code = InputCode::right;
-				break;
+				goto input_code_accepted;
+			case 0xFFFFFFFF: // Repeat previous code
+				Serial.println(" Repeated");
+				if (accepted_code)
+				{
+					size_t mask =
+						(repeat_count < (4* 0 + 8*5)) ?8:
+						(repeat_count < (4*15 + 8*5)) ?4:
+						                               2;
+					if (mask > 2)
+						++repeat_count;
+					if (++repeated_code & mask) // Slow down the repeat rate
+					{
+						repeated_code = 0;
+						code = previous_code;
+						return true;
+					}
+				}
+				return false;
 			default:
 				Serial.println(" Unknown");
 				break;
+			input_code_accepted:
+				accepted_code = true;
+				previous_code = code;
+				repeat_count = 0;
+				return true;
 			}
 
-			bool result = code != previous_code;
-
-			if (result) previous_code = code;
-
-			return result;
+			repeat_count = 0;
+			accepted_code = false;
 		}
 
 		return false;
@@ -138,6 +155,9 @@ struct IRRemoteInput
 };
 
 InputCode IRRemoteInput::previous_code = InputCode::none;
+size_t    IRRemoteInput::repeated_code = 0;
+bool      IRRemoteInput::accepted_code = false;
+size_t    IRRemoteInput::repeat_count = 0;
 
 #else
 using IRRemoteInput = DummyInput;

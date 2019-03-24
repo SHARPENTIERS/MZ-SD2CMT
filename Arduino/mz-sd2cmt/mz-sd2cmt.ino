@@ -1,8 +1,10 @@
+#include <SSD1306init.h>
+#include <SSD1306AsciiWire.h>
+#include <SSD1306AsciiSpi.h>
+#include <SSD1306AsciiSoftSpi.h>
+#include <SSD1306AsciiAvrI2c.h>
+#include <SSD1306Ascii.h>
 #include <Arduino.h>
-
-#define HAS_LCD16X2_DISPLAY 1
-#define HAS_LCD16X2_INPUT   1
-#define HAS_LCD16X2_INPUT   1
 
 #include "mz-sd2cmt.serial.h"
 #include "mz-sd2cmt.storage.h"
@@ -45,6 +47,7 @@ InputCode readInput()
 	return InputReader::readCode(result) ? result : InputCode::none;
 }
 
+unsigned long		progress_size;
 bool				canceled = false;
 bool				ultrafast = false;
 bool				ultrafast_enabled = false;
@@ -386,6 +389,8 @@ void leftPressed()
 void rightPressed()
 {
     ultrafast_enabled = !ultrafast_enabled;
+
+	Display::displayCode(DisplayCode::set_entry_name);
 }
 
 /// This function handles the case where UP button is pressed.
@@ -502,7 +507,7 @@ void playLEP()
 				{
 					next = entry.read(); // read in advance the following LEP byte
 
-					new_progress = (5 * 4 * count) / total;
+					new_progress = (5 * 16 * count) / total;
 					if (old_progress != new_progress)
 					{
 						progress_size = new_progress;
@@ -709,7 +714,7 @@ void playWAV()
 				{
 					next = readBytes(); // read in advance the following samples
 
-					new_progress = (5 * 4 * count) / total;
+					new_progress = (5 * 16 * count) / total;
 					if (old_progress != new_progress)
 					{
 						progress_size = new_progress;
@@ -1140,7 +1145,7 @@ void playMZF()
 
 		if (count < fsize)
 		{
-			new_progress = (5 * 4 * count) / fsize;
+			new_progress = (5 * 16 * count) / fsize;
 			if (old_progress != new_progress)
 			{
 				progress_size = new_progress;
@@ -1199,8 +1204,8 @@ void setup()
 
 void loop()
 {
-	SerialCode	serialCode;
-	InputCode	inputCode;
+	SerialCode	serialCode = SerialCode::none;
+	InputCode	inputCode = InputCode::none;
 
 	if (SerialPrompt::readCode(serialCode))
 	{

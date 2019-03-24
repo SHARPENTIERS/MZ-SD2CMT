@@ -1,6 +1,10 @@
 #pragma once
 
 #define HAS_LCD16X2_DISPLAY 1
+#define HAS_OLED128X32_DISPLAY 1
+
+extern unsigned long progress_size;
+extern bool ultrafast_enabled;
 
 enum class DisplayCode : int8_t
 {
@@ -27,7 +31,11 @@ struct DummyDisplay
 	static void configure() {}
 };
 
+#define SCROLL_SPEED  250    // Text scroll delay
+#define SCROLL_WAIT   3000   // Delay before scrolling starts
+
 #include "mz-sd2cmt.display.lcd16x2.h"
+#include "mz-sd2cmt.display.oled128x32.h"
 #include "mz-sd2cmt.display.serial.h"
 
 template<typename Head, typename... Rest> struct DisplaySelector
@@ -69,4 +77,4 @@ template<typename Tail> struct DisplaySelector< Tail >
 	}
 };
 
-using Display = DisplaySelector< LCD16x2Display, SerialDisplay >;
+using Display = DisplaySelector< LCD16x2Display, OLED128x32Display, SerialDisplay >;
