@@ -1,6 +1,6 @@
 #pragma once
 
-#define HAS_LCD16X2_INPUT 1
+#define HAS_LCD16X2_INPUT 0
 #define HAS_IRREMOTE_INPUT 1
 
 enum class InputCode : int8_t
@@ -31,7 +31,7 @@ enum class InputCode : int8_t
 
 struct DummyInput
 {
-	static bool readCode(InputCode& code) { return true; }
+	static bool readCode(InputCode& code) { return false; }
 	static void setup() {}
 	static void configure() {}
 };

@@ -1,6 +1,6 @@
 #pragma once
 
-#define HAS_LCD16X2_DISPLAY 1
+#define HAS_LCD16X2_DISPLAY 0
 #define HAS_OLED128X32_DISPLAY 1
 
 extern unsigned long progress_size;
