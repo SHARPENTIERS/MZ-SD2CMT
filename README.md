@@ -8,12 +8,14 @@ SD card based CMT for MZ 80K series (MZ-80 K/K2/K2E/C, MZ-80 A, MZ-1200, MZ-700)
 
 Examples of what I used:
 - an Arduino MEGA 2560 R3 ATMEGA 16U2: [Amazon](https://www.amazon.fr/gp/product/B06XNPKSDK), [MiniInTheBox](https://www.miniinthebox.com/fr/p/funduino-mega-2560-conseil-du-developpement-r3_p903322.html).
+- a 0.91" I2C 128x32 OLED: [Amazon](https://www.amazon.com/128x32-SSD1306-Consumption-Display-Arduino/dp/B07PDFCVXL).
 - a 16x2 LCD with 5 buttons: [Amazon](https://www.amazon.fr/gp/product/B01EYW5R5M), [MiniInTheBox](https://www.miniinthebox.com/fr/p/16-x-2-bouclier-clavier-lcd-pour-arduino-uno-duemilanove-mega_p340888.html).
+- a KEYES IR remote: [Amazon](https://www.amazon.com/C-J-SHOP-Infrared-Wireless-Control/dp/B01EE4VXS0/ref=sr_1_7?keywords=keys+ir+kit&qid=1553948716&s=gateway&sr=8-7).
 - Dupont Wires to connect the Arduino to the SD card module and the MZ tape connector.
 - a LED to show transfer activity.
 
 ## Installation
-You need SdFat and CrystalLiquid libraries: they are available from Arduino IDE.
+You need SdFat, CrystalLiquid, IRremote and SSD1306Ascii libraries: they are available from Arduino IDE.
 
 ## Wiring
 
@@ -22,6 +24,7 @@ Arduino MEGA Pins:
  Name | Number | Direction | Description                       
  ---- | ------:|:---------:|:-----------
  A0   |        | <-        | BUTTON (UP/DOWN/LEFT/RIGHT/SELECT)
+ A1   |        | <-        | IR remote data line
  .    | 4      | ->        | LCD D4
  .    | 5      | ->        | LCD D5
  .    | 6      | ->        | LCD D6
@@ -30,9 +33,11 @@ Arduino MEGA Pins:
  .    | 9      | ->        | LCD ENABLE
  RX3  | 15     | <-        | MZCMT WRITE
  TX2  | 16     | <-        | MZCMT MOTOR
- OC3C | 3      | ->        | MZCMT READ
+ OC3B | 2      | ->        | MZCMT READ
  TX1  | 18     | ->        | MZCMT SENSE
  RX1  | 19     | ->        | MZCMT LED
+ SDA  | 20     | ->        | OLED SDA (I²C)
+ SCL  | 21     | ->        | OLED SCK (I²C)
  .    | 50     | <-        | SD MISO (SD Card MISO PIN)
  .    | 51     | ->        | SD MOSI (SD Card MOSI PIN)
  .    | 52     | ->        | SD SCK  (SD Card SCK PIN)
@@ -48,8 +53,25 @@ LCD Pins:
  D6   | <-        | ARDUINO #6
  D7   | <-        | ARDUINO #7
  RESET| <-        | ARDUINO #8
- VCC  | <-        | ARDUINO 5v<br/>
- GND  | <-        | ARDUINO GND<br/>
+ VCC  | <-        | ARDUINO 5v
+ GND  | <-        | ARDUINO GND
+
+OLED Pins:
+
+ Name | Direction | Connected to                       
+ ---- |:---------:|:------------
+ SDA  | <-        | ARDUINO #20
+ SCK  | <-        | ARDUINO #21
+ VCC  | <-        | ARDUINO 5v
+ GND  | <-        | ARDUINO GND
+
+IR RECV Pins:
+
+ Name | Direction | Connected to                       
+ ---- |:---------:|:------------
+ DATA | <-        | ARDUINO #55
+ VCC  | <-        | ARDUINO 5v
+ GND  | <-        | ARDUINO GND
 
 
 SD CARD Pins:
