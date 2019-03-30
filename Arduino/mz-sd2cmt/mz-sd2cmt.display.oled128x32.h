@@ -281,7 +281,7 @@ GLCDFONTDECL(AsciiFont5x7) =
 	0x00, 0x00, 0x00, 0x00, 0x00  // #255 NBSP
 };
 
-struct OLED128x32Display
+struct OLED128x32Display : DummyDisplay
 {
 	/// This function displays a text on the first line with a horizontal scrolling if necessary.
 	static void scrollText(char* text, bool refresh_all = true)

@@ -1,6 +1,6 @@
 #pragma once
 
-struct SerialDisplay
+struct SerialDisplay : DummyDisplay
 {
 	static void displayCode(DisplayCode code)
 	{

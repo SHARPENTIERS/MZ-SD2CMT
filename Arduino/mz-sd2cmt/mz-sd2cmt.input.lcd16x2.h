@@ -1,7 +1,7 @@
 #pragma once
 
 #if HAS_LCD16X2_INPUT
-struct LCD16x2Input
+struct LCD16x2Input : DummyInput
 {
 	static InputCode previous_code;
 

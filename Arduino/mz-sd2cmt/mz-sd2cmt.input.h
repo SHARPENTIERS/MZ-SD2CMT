@@ -31,9 +31,9 @@ enum class InputCode : int8_t
 
 struct DummyInput
 {
-	static bool readCode(InputCode& code) { return false; }
-	static void setup() {}
-	static void configure() {}
+	static inline bool readCode(InputCode& code) { return false; }
+	static inline void setup() {}
+	static inline void configure() {}
 };
 
 #include "mz-sd2cmt.input.irremote.h"
@@ -41,12 +41,12 @@ struct DummyInput
 
 template<typename Head, typename... Rest> struct InputReaderSelector
 {
-	static bool readCode(InputCode &code)
+	static inline bool readCode(InputCode &code)
 	{
 		return Head::readCode(code) or InputReaderSelector<Rest...>::readCode(code);
 	}
 
-	static void setup()
+	static inline void setup()
 	{
 		Head::setup();
 		InputReaderSelector<Rest...>::setup();
@@ -55,12 +55,12 @@ template<typename Head, typename... Rest> struct InputReaderSelector
 
 template<typename Tail> struct InputReaderSelector< Tail >
 {
-	static bool readCode(InputCode &code)
+	static inline bool readCode(InputCode &code)
 	{
 		return Tail::readCode(code);
 	}
 
-	static void setup()
+	static inline void setup()
 	{
 		Tail::setup();
 	}

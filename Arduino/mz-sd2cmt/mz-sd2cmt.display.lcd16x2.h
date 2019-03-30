@@ -99,7 +99,7 @@ LiquidCrystal lcd(LCD_RS, LCD_EN, LCD_D4, LCD_D5, LCD_D6, LCD_D7);
 byte          lcd_scroll_pos = 0;
 unsigned long lcd_scroll_time = millis() + SCROLL_WAIT;
 
-struct LCD16x2Display
+struct LCD16x2Display : DummyDisplay
 {
 	/// This function displays a text on the first line with a horizontal scrolling if necessary.
 	static void scrollText(char* text)

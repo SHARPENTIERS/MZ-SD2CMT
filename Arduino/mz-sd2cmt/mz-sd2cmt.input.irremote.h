@@ -9,7 +9,7 @@
 IRrecv			irRecv(IR_RECV_PIN);
 decode_results	irResults;
 
-struct IRRemoteInput
+struct IRRemoteInput : DummyInput
 {
 	static InputCode previous_code;
 	static size_t    repeated_code;

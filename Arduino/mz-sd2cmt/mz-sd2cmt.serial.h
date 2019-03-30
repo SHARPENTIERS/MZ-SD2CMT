@@ -14,13 +14,13 @@ struct SerialPrompt
 
 	static bool readCode(SerialCode& code)
 	{
-		code = SerialCode::none;
-
 		if (Serial.available())
 		{
-			(void)Serial.read();
+			Serial.println(Serial.readString());
 
 			// Do something with Serial?
+			
+			return true;
 		}
 
 		return false;

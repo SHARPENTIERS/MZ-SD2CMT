@@ -6,6 +6,7 @@
 #include <SSD1306Ascii.h>
 #include <Arduino.h>
 
+#include "mz-sd2cmt.gpio.h"
 #include "mz-sd2cmt.serial.h"
 #include "mz-sd2cmt.storage.h"
 #include "mz-sd2cmt.input.h"
@@ -19,26 +20,18 @@
 
 #define MZT_DI          15     // MZTape WRITE (WRITE -> DI)
 #define MZT_MI          16     // MZTape MOTOR ON (MOTOR ON -> MI) 
-#define MZT_DO           3     // MZTape READ (DO -> READ)
+#define MZT_DO           2     // MZTape READ (DO -> READ) - UNUSED because using OSP instead! 
 #define MZT_CS          18     // MZTape /SENSE (CS -> /SENSE) 
-#define MZT_LO          19     // MZTape LED OUTPUT
 
 #define port_MZT_DI		(&PINJ)
 #define port_MZT_MI		(&PINH)
 #define port_MZT_DO		(&PORTE)
 #define port_MZT_CS		(&PORTD)
-#define port_MZT_LO		(&PORTD)
 
 #define mask_MZT_DI		(1 << PJ0)
 #define mask_MZT_MI		(1 << PH1)
 #define mask_MZT_DO		(1 << PE5) // OC3C
 #define mask_MZT_CS		(1 << PD3)
-#define mask_MZT_LO		(1 << PD2)
-
-#define set_port_bit(p, b)			if (b) *port_##p |= mask_##p; else *port_##p &= ~mask_##p
-#define get_port_bit(p)				(*port_##p & mask_##p)
-#define toggle_port_bit(p)			*port_##p ^= mask_##p
-#define clear_port_bit(p)			*port_##p &= ~mask_##p
 
 InputCode readInput()
 {
@@ -457,7 +450,7 @@ void playLEP()
 
     canceled = false;
 
-	set_port_bit(MZT_LO, led); // led light off initially
+	Display::setLed(led); // led light off initially
 
 	set_port_bit(MZT_CS, 0); // signal /SENSE at 0 to acknowledge the MZ that data is ready
 
@@ -468,7 +461,7 @@ void playLEP()
 	{
 		if (get_port_bit(MZT_MI) == 0) // MOTOR at 0, pause
 		{
-			set_port_bit(MZT_LO, 0); // LED off
+			Display::setLed(false); // LED off
 
 			osp.stop();
 
@@ -548,7 +541,7 @@ void playLEP()
         if (led_period & 512) // the control led is alternated every 512 LEP bytes processed
         {
             led = !led; // toggle the signal level of the LED indicator
-			set_port_bit(MZT_LO, led);
+			Display::setLed(led);
         }
     }
 
@@ -556,7 +549,8 @@ void playLEP()
 	osp.fire(period1, period1 + period0); // and we update the level output DATA IN
 	osp.wait();
 
-	set_port_bit(MZT_LO, 0); // it's over, no more led.
+	Display::setLed(false); // it's over, no more led.
+
 	set_port_bit(MZT_CS, 1); // reset the /SENSE signal to 1
 
 	osp.stop();
@@ -650,7 +644,7 @@ void playWAV()
 
 	canceled = false;
 
-	set_port_bit(MZT_LO, led); // led light off initially
+	Display::setLed(led); // led light off initially
 
 	set_port_bit(MZT_CS, 0); // signal /SENSE at 0 to acknowledge the MZ that data is ready
 
@@ -677,7 +671,7 @@ void playWAV()
 	{
 		if (get_port_bit(MZT_MI) == 0) // MOTOR at 0, pause
 		{
-			set_port_bit(MZT_LO, 0); // LED off
+			Display::setLed(false); // LED off
 
 			osp.stop();
 
@@ -755,7 +749,7 @@ void playWAV()
 		if (led_period & 512) // the control led is alternated every 512 LEP bytes processed
 		{
 			led = !led; // toggle the signal level of the LED indicator
-			set_port_bit(MZT_LO, led);
+			Display::setLed(led);
 		}
 	}
 
@@ -763,7 +757,8 @@ void playWAV()
 	osp.fire(period1 * 1000000 / wav_rate, (period1 + period0) * 1000000 / wav_rate); // and we update the level output DATA IN
 	osp.wait();
 
-	set_port_bit(MZT_LO, 0); // it's over, no more led.
+	Display::setLed(false); // it's over, no more led.
+
 	set_port_bit(MZT_CS, 1); // reset the /SENSE signal to 1
 
 	osp.stop();
@@ -827,7 +822,7 @@ void playMZF()
 	osp.start();
 	osp.adjustWait(2000000); // 2s
 
-	set_port_bit(MZT_LO, led); // led light off initially
+	Display::setLed(led); // led light off initially
 
 	set_port_bit(MZT_CS, 0); // signal /SENSE at 0 to acknowledge the MZ that data is ready
 
@@ -901,7 +896,7 @@ void playMZF()
 			{
 				osp.stop();
 
-				set_port_bit(MZT_LO, 0); // LED off
+				Display::setLed(false); // LED off
 
 				// TODO:
 				Serial.print(F("Waiting for motor on... "));
@@ -1162,14 +1157,14 @@ void playMZF()
 
 		++led_period;
 
-		if (led_period & 256) // the control led is alternated every 256 bits processed
+		if (led_period & 128) // the control led is alternated every 128 bits processed
 		{
 			led = !led; // toggle the signal level of the LED indicator
-			set_port_bit(MZT_LO, led);
+			Display::setLed(led);
 		}
 	}
 
-	set_port_bit(MZT_LO, 0); // it's over, no more led.
+	Display::setLed(false); // it's over, no more led.
 
 	set_port_bit(MZT_CS, 1); // reset the /SENSE signal to 1
 
@@ -1179,7 +1174,7 @@ void playMZF()
 
 void setup()
 {
-    osp.setup(0);
+    osp.setup(1);
 
 	SerialPrompt::setup();
 	InputReader::setup();
@@ -1189,10 +1184,8 @@ void setup()
     pinMode(MZT_DI, INPUT_PULLUP);
     pinMode(MZT_CS, OUTPUT);
     pinMode(MZT_MI, INPUT_PULLUP);
-    pinMode(MZT_LO, OUTPUT);
 
 	set_port_bit(MZT_CS, 1); // signal /SENSE à 1 (lecteur non disponible)
-	set_port_bit(MZT_LO, 0); // témoin led éteint
 
     if (!sd_ready)
 	{
@@ -1204,6 +1197,8 @@ void setup()
 
 void loop()
 {
+	osp.setLevel(0);
+
 	SerialCode	serialCode = SerialCode::none;
 	InputCode	inputCode = InputCode::none;
 
