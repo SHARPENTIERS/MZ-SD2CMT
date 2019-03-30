@@ -8,10 +8,14 @@ SD card based CMT for MZ 80K series (MZ-80 K/K2/K2E/C, MZ-80 A, MZ-1200, MZ-700)
 4. KEYES IR remote
 
 Examples of what I used:
-- an Arduino MEGA 2560 R3 ATMEGA 16U2: [Amazon](https://www.amazon.fr/gp/product/B06XNPKSDK), [MiniInTheBox](https://www.miniinthebox.com/fr/p/funduino-mega-2560-conseil-du-developpement-r3_p903322.html).
-- a 0.91" I2C 128x32 OLED: [Amazon](https://www.amazon.com/128x32-SSD1306-Consumption-Display-Arduino/dp/B07PDFCVXL).
-- a 16x2 LCD with 5 buttons: [Amazon](https://www.amazon.fr/gp/product/B01EYW5R5M), [MiniInTheBox](https://www.miniinthebox.com/fr/p/16-x-2-bouclier-clavier-lcd-pour-arduino-uno-duemilanove-mega_p340888.html).
-- a KEYES IR remote: [Amazon](https://www.amazon.com/C-J-SHOP-Infrared-Wireless-Control/dp/B01EE4VXS0/ref=sr_1_7?keywords=keys+ir+kit&qid=1553948716&s=gateway&sr=8-7).
+- an Arduino MEGA 2560 R3 ATMEGA 16U2:
+![71iRODIgxUL _SL1500_](https://user-images.githubusercontent.com/56785/55276248-0c186780-52f2-11e9-8fc0-8e57b2302ac0.jpg)
+- a 0.91" I2C 128x32 OLED:
+![71b-NMspBIL _SL1500_](https://user-images.githubusercontent.com/56785/55276439-0754b300-52f4-11e9-9a63-78de07897087.jpg)
+- a 16x2 LCD with 5 buttons:
+![71By4b4xsRL _SL1200_](https://user-images.githubusercontent.com/56785/55276357-30287880-52f3-11e9-9958-61ec5a2bd57e.jpg)
+- a KEYES IR remote:
+![61-sEwpOfmL _SL1200_](https://user-images.githubusercontent.com/56785/55276268-4da91280-52f2-11e9-9a47-09ee81b730af.jpg)
 - Dupont Wires to connect the Arduino to the SD card module and the MZ tape connector.
 - a LED to show transfer activity.
 
