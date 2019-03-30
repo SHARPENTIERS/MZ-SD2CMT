@@ -4,7 +4,8 @@ SD card based CMT for MZ 80K series (MZ-80 K/K2/K2E/C, MZ-80 A, MZ-1200, MZ-700)
 ## Parts Used
 1. Arduino MEGA (but this should work on any Arduino UNO or NANO with minimal changes)
 2. SD card module
-3. 16x2 4-bit parallel LCD with 5 x Buttons
+3. 16x2 4-bit parallel LCD with 5 x Buttons or 128x32 I²C OLED
+4. KEYES IR remote
 
 Examples of what I used:
 - an Arduino MEGA 2560 R3 ATMEGA 16U2: [Amazon](https://www.amazon.fr/gp/product/B06XNPKSDK), [MiniInTheBox](https://www.miniinthebox.com/fr/p/funduino-mega-2560-conseil-du-developpement-r3_p903322.html).
