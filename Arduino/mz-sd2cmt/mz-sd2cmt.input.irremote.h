@@ -220,4 +220,8 @@ size_t          IRRemoteInputSelector<>::repeat_count = 0;
 // Insert your other IR remote models in the selector list
 using IRRemoteInput = IRRemoteInputSelector< KeyesIRRemoteInput >;
 
+#else
+
+using IRRemoteInput = DummyInput;
+
 #endif // HAS_INPUT_IRREMOTE

@@ -312,7 +312,6 @@ byte          LCD16x2Display::scroll_pos = 0;
 char          LCD16x2Display::scroll_dir = 0;
 unsigned long LCD16x2Display::scroll_time = millis() + SCROLL_WAIT;
 
-
 #else
 
 using LCD16x2Display = DummyDisplay;
