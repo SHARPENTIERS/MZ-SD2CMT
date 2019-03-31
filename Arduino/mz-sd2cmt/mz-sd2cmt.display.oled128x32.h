@@ -5,16 +5,6 @@
 #include <SSD1306Ascii.h>
 #include <SSD1306AsciiAvrI2c.h>
 
-#define OLED_I2C_ADDR  0x3C
-
-#define OLED_SCROLL_SPEED  100    // Text scroll delay
-#define OLED_SCROLL_WAIT   2000   // Delay before scrolling starts
-
-SSD1306AsciiAvrI2c oled;
-byte               oled_scroll_pos = 0;
-char               oled_scroll_dir = 0;
-unsigned long      oled_scroll_time = millis() + SCROLL_WAIT;
-
 // standard ascii 5x7 font
 GLCDFONTDECL(AsciiFont5x7) =
 {
@@ -283,19 +273,29 @@ GLCDFONTDECL(AsciiFont5x7) =
 
 struct OLED128x32Display : DummyDisplay
 {
+	static constexpr auto I2C_ADDR = 0x3C;
+
+	static constexpr auto SCROLL_SPEED = 100; // Text scroll delay;
+	static constexpr auto SCROLL_WAIT = 2000; // Delay before scrolling starts
+
+	static SSD1306AsciiAvrI2c oled;
+	static byte               scroll_pos;
+	static char               scroll_dir;
+	static unsigned long      scroll_time;
+
 	/// This function displays a text on the first line with a horizontal scrolling if necessary.
 	static void scrollText(char* text, bool refresh_all = true)
 	{
 		const auto n = oled.strWidth(text);
 		const auto w = oled.fontWidth();
-		int i = min(oled_scroll_pos, n) / w;
+		int i = min(scroll_pos, n) / w;
 
 		if (refresh_all)
 		{
 			oled.clear();
 		}
 		oled.set1X();
-		oled.setCursor(12 - (oled_scroll_pos % w), 0);
+		oled.setCursor(12 - (scroll_pos % w), 0);
 		oled.print(text + i);
 		if (!refresh_all)
 		{
@@ -303,13 +303,13 @@ struct OLED128x32Display : DummyDisplay
 		}
 		oled.setCursor(0, 0);
 		oled.set2X();
-		oled.print(entry_type ? "/LWB"[entry_type - 1] : '?');
+		oled.print("?/LWBB"[entry_type]);
 		oled.set1X();
 		if (refresh_all)
 		{
 			oled.setCursor(12, 1);
 			if (entry_type > ENTRY_DIR)
-				oled.print(ultrafast_enabled ? F("\x10: ultra-fast    ") : F("\x10: normal        "));
+				oled.print(ultrafast_enabled ? F("\x10: ultra-fast") : F("\x10: normal"));
 			if (entry_exists)
 			{
 				oled.setCursor(0, 3);
@@ -324,7 +324,7 @@ struct OLED128x32Display : DummyDisplay
 
 	static void setup()
 	{
-		oled.begin(&Adafruit128x32, OLED_I2C_ADDR);
+		oled.begin(&Adafruit128x32, I2C_ADDR);
 
 		oled.setFont(AsciiFont5x7);
 		oled.clear();
@@ -346,49 +346,49 @@ struct OLED128x32Display : DummyDisplay
 			break;
 
 		case DisplayCode::set_entry_name:
-			oled_scroll_time = millis() + SCROLL_WAIT;
-			oled_scroll_pos = 0;
+			scroll_time = millis() + SCROLL_WAIT;
+			scroll_pos = 0;
 			scrollText(lfn);
 			break;
 
 		case DisplayCode::scroll_entry_name:
-			if (millis() >= oled_scroll_time)
+			if (millis() >= scroll_time)
 			{
 				auto n = oled.strWidth(lfn) - oled.fontWidth();
-				switch (oled_scroll_dir)
+				switch (scroll_dir)
 				{
 				case +1:
-					if (n - oled_scroll_pos > oled.displayWidth())
+					if (n - scroll_pos > oled.displayWidth())
 					{
-						oled_scroll_time = millis() + OLED_SCROLL_SPEED;
+						scroll_time = millis() + SCROLL_SPEED;
 						scrollText(lfn, false);
-						++oled_scroll_pos;
+						++scroll_pos;
 					}
 					else
 					{
-						oled_scroll_dir = -1;
-						oled_scroll_time = millis() + OLED_SCROLL_WAIT;
+						scroll_dir = -1;
+						scroll_time = millis() + SCROLL_WAIT;
 						scrollText(lfn, false);
 					}
 					break;
 				case -1:
-					if (oled_scroll_pos > 0)
+					if (scroll_pos > 0)
 					{
-						oled_scroll_time = millis() + OLED_SCROLL_SPEED;
-						--oled_scroll_pos;
+						scroll_time = millis() + SCROLL_SPEED;
+						--scroll_pos;
 						scrollText(lfn, false);
 					}
 					else
 					{
-						oled_scroll_dir = +1;
-						oled_scroll_time = millis() + OLED_SCROLL_WAIT;
+						scroll_dir = +1;
+						scroll_time = millis() + SCROLL_WAIT;
 					}
 					break;
 				default:
-					if (n - oled_scroll_pos > oled.displayWidth())
+					if (n - scroll_pos > oled.displayWidth())
 					{
-						oled_scroll_time = millis();
-						oled_scroll_dir = +1;
+						scroll_time = millis();
+						scroll_dir = +1;
 					}
 					break;
 				}
@@ -397,7 +397,7 @@ struct OLED128x32Display : DummyDisplay
 
 		case DisplayCode::startPlaying:
 			oled.clear();
-			oled_scroll_pos = 0;
+			scroll_pos = 0;
 			scrollText(lfn);
 			oled.set2X();
 			oled.setCursor(0, 2);
@@ -483,6 +483,11 @@ struct OLED128x32Display : DummyDisplay
 		}
 	}
 };
+
+SSD1306AsciiAvrI2c OLED128x32Display::oled;
+byte               OLED128x32Display::scroll_pos = 0;
+char               OLED128x32Display::scroll_dir = 0;
+unsigned long      OLED128x32Display::scroll_time = millis() + OLED128x32Display::SCROLL_WAIT;
 
 #else
 

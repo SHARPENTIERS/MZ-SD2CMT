@@ -1,7 +1,7 @@
 #pragma once
 
-#define HAS_LCD16X2_DISPLAY 0
-#define HAS_OLED128X32_DISPLAY 1
+#define HAS_LCD16X2_DISPLAY 1
+#define HAS_OLED128X32_DISPLAY 0
 #define HAS_LED_DISPLAY 1
 
 extern unsigned long progress_size;
@@ -32,9 +32,6 @@ struct DummyDisplay
 	static inline void setup() {}
 	static inline void configure() {}
 };
-
-#define SCROLL_SPEED  250    // Text scroll delay
-#define SCROLL_WAIT   3000   // Delay before scrolling starts
 
 #include "mz-sd2cmt.display.lcd16x2.h"
 #include "mz-sd2cmt.display.oled128x32.h"

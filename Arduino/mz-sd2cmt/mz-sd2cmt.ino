@@ -1,9 +1,3 @@
-#include <SSD1306init.h>
-#include <SSD1306AsciiWire.h>
-#include <SSD1306AsciiSpi.h>
-#include <SSD1306AsciiSoftSpi.h>
-#include <SSD1306AsciiAvrI2c.h>
-#include <SSD1306Ascii.h>
 #include <Arduino.h>
 
 #include "mz-sd2cmt.gpio.h"
@@ -307,7 +301,7 @@ void fetchEntry(int16_t new_index)
     {
         memset(sfn, 0, SFN_DEPTH);
         memset(lfn, 0, LFN_DEPTH + 1);
-        strcpy(lfn, "<no file>");
+        strcpy(lfn, "<---------no file--------->");
 
 		entry_exists = false;
 

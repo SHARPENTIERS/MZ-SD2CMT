@@ -1,7 +1,7 @@
 #pragma once
 
-#define HAS_LCD16X2_INPUT 0
-#define HAS_IRREMOTE_INPUT 1
+#define HAS_INPUT_KEYPAD 1
+#define HAS_INPUT_IRREMOTE 1
 
 enum class InputCode : int8_t
 {
@@ -36,9 +36,6 @@ struct DummyInput
 	static inline void configure() {}
 };
 
-#include "mz-sd2cmt.input.irremote.h"
-#include "mz-sd2cmt.input.lcd16x2.h"
-
 template<typename Head, typename... Rest> struct InputReaderSelector
 {
 	static inline bool readCode(InputCode &code)
@@ -66,4 +63,7 @@ template<typename Tail> struct InputReaderSelector< Tail >
 	}
 };
 
-using InputReader = InputReaderSelector< LCD16x2Input, IRRemoteInput >;
+#include "mz-sd2cmt.input.irremote.h"
+#include "mz-sd2cmt.input.keypad.h"
+
+using InputReader = InputReaderSelector< KeyPadInput, IRRemoteInput >;

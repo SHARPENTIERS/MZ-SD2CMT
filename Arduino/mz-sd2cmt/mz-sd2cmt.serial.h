@@ -5,6 +5,8 @@ enum class SerialCode : int8_t
 	none
 };
 
+bool serial_debug = false;
+
 struct SerialPrompt
 {
 	static void setup()
@@ -16,11 +18,21 @@ struct SerialPrompt
 	{
 		if (Serial.available())
 		{
-			Serial.println(Serial.readString());
+			if (Serial.peek() == '|')
+			{
+				String command = Serial.readString();
+				if (command == F("|debug"))
+				{
+					serial_debug = !serial_debug;
+				}
+				else
+				{
+					Serial.print(F("Unknown command: "));
+					Serial.println(command);
+				}
 
-			// Do something with Serial?
-			
-			return true;
+				return true;
+			}		
 		}
 
 		return false;
