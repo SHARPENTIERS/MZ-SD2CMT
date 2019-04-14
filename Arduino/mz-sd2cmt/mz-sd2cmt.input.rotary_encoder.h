@@ -10,9 +10,9 @@ extern bool serial_debug;
 
 struct RotaryEncoderInput : DummyInput
 {
-	static constexpr auto &OPORT = reinterpret_cast<volatile uint8_t &>(PORTF);
-	static constexpr auto &IPORT = reinterpret_cast<volatile uint8_t &>(PINF);
-	static constexpr auto &DPORT = reinterpret_cast<volatile uint8_t &>(DDRF);
+	static constexpr auto *OPORT = reinterpret_cast<volatile uint8_t *>(&PORTF);
+	static constexpr auto *IPORT = reinterpret_cast<volatile uint8_t *>(&PINF);
+	static constexpr auto *DPORT = reinterpret_cast<volatile uint8_t *>(&DDRF);
 	static constexpr byte BASEPIN = PF2;
 
 	static constexpr byte SWITCH = 4;
@@ -73,11 +73,11 @@ struct RotaryEncoderInput : DummyInput
 	static inline void setup()
 	{
 		// Set CHANNEL A, CHANNEL B and SWITCH pins as input
-		DPORT &= ~((CHANNEL_A | CHANNEL_B | SWITCH) << BASEPIN);
+		*DPORT &= ~((CHANNEL_A | CHANNEL_B | SWITCH) << BASEPIN);
 		// Set CHANNEL A and CHANNEL B as pull down input.
-		OPORT &= ~((CHANNEL_A | CHANNEL_B) << BASEPIN);
+		*OPORT &= ~((CHANNEL_A | CHANNEL_B) << BASEPIN);
 		// Set SWITCH as pull up input.
-		OPORT |=  ((SWITCH) << BASEPIN);
+		*OPORT |=  ((SWITCH) << BASEPIN);
 
 		if (serial_debug)
 			Serial.println(F("Input device: rotary encoder."));
@@ -85,7 +85,7 @@ struct RotaryEncoderInput : DummyInput
 
 	static inline byte state()
 	{
-		return (IPORT >> BASEPIN) & (CHANNEL_A | CHANNEL_B | SWITCH);
+		return (*IPORT >> BASEPIN) & (CHANNEL_A | CHANNEL_B | SWITCH);
 	}
 };
 
