@@ -279,6 +279,7 @@ struct OLED128x32Display : DummyDisplay
 	static constexpr auto SCROLL_WAIT = 2000; // Delay before scrolling starts
 
 	static SSD1306AsciiAvrI2c oled;
+	static bool               present;
 	static byte               scroll_pos;
 	static char               scroll_dir;
 	static unsigned long      scroll_time;
@@ -286,6 +287,8 @@ struct OLED128x32Display : DummyDisplay
 	/// This function displays a text on the first line with a horizontal scrolling if necessary.
 	static void scrollText(char* text, bool refresh_all = true)
 	{
+		if (!present) return;
+
 		const auto n = oled.strWidth(text);
 		const auto w = oled.fontWidth();
 		int i = min(scroll_pos, n) / w;
@@ -303,20 +306,20 @@ struct OLED128x32Display : DummyDisplay
 		}
 		oled.setCursor(0, 0);
 		oled.set2X();
-		oled.print("?/LWBB"[entry_type]);
+		oled.print("?/LWBB"[Storage::entry_type]);
 		oled.set1X();
 		if (refresh_all)
 		{
 			oled.setCursor(12, 1);
-			if (entry_type > ENTRY_DIR)
+			if (Storage::entry_type > ENTRY_DIR)
 				oled.print(ultrafast_enabled ? F("\x10: ultra-fast") : F("\x10: normal"));
-			if (entry_exists)
+			if (Storage::entry_exists)
 			{
 				oled.setCursor(0, 3);
 				oled.setInvertMode(true);
-				entry.printFileSize(&oled);
+				Storage::entry.printFileSize(&oled);
 				oled.write(' ');
-				entry.printModifyDateTime(&oled);
+				Storage::entry.printModifyDateTime(&oled);
 				oled.setInvertMode(false);
 			}
 		}
@@ -324,18 +327,23 @@ struct OLED128x32Display : DummyDisplay
 
 	static void setup()
 	{
-		oled.begin(&Adafruit128x32, I2C_ADDR);
-
-		oled.setFont(AsciiFont5x7);
-		oled.clear();
-
-		oled.print(F("SD2MZCMT"));
-
-		Serial.println("OLED 128x32");
+		Wire.begin();
+		Wire.beginTransmission(I2C_ADDR);
+		if (Wire.endTransmission() == 0)
+		{
+			present = true;
+			oled.begin(&Adafruit128x32, I2C_ADDR);
+			oled.setFont(AsciiFont5x7);
+			oled.clear();
+			oled.print(F("SD2MZCMT"));
+			Serial.println("Using OLED 128x32");
+		}
 	}
 
 	static void displayCode(DisplayCode code)
 	{
+		if (!present) return;
+
 		static unsigned long start_time = millis();
 		static byte          old_progress = 0;
 		switch (code)
@@ -348,27 +356,27 @@ struct OLED128x32Display : DummyDisplay
 		case DisplayCode::set_entry_name:
 			scroll_time = millis() + SCROLL_WAIT;
 			scroll_pos = 0;
-			scrollText(lfn);
+			scrollText(Storage::lfn);
 			break;
 
 		case DisplayCode::scroll_entry_name:
 			if (millis() >= scroll_time)
 			{
-				auto n = oled.strWidth(lfn) - oled.fontWidth();
+				auto n = oled.strWidth(Storage::lfn) - oled.fontWidth();
 				switch (scroll_dir)
 				{
 				case +1:
 					if (n - scroll_pos > oled.displayWidth())
 					{
 						scroll_time = millis() + SCROLL_SPEED;
-						scrollText(lfn, false);
+						scrollText(Storage::lfn, false);
 						++scroll_pos;
 					}
 					else
 					{
 						scroll_dir = -1;
 						scroll_time = millis() + SCROLL_WAIT;
-						scrollText(lfn, false);
+						scrollText(Storage::lfn, false);
 					}
 					break;
 				case -1:
@@ -376,7 +384,7 @@ struct OLED128x32Display : DummyDisplay
 					{
 						scroll_time = millis() + SCROLL_SPEED;
 						--scroll_pos;
-						scrollText(lfn, false);
+						scrollText(Storage::lfn, false);
 					}
 					else
 					{
@@ -395,10 +403,10 @@ struct OLED128x32Display : DummyDisplay
 			}
 			break;
 
-		case DisplayCode::startPlaying:
+		case DisplayCode::start_playing:
 			oled.clear();
 			scroll_pos = 0;
-			scrollText(lfn);
+			scrollText(Storage::lfn);
 			oled.set2X();
 			oled.setCursor(0, 2);
 			oled.clearToEOL();
@@ -414,7 +422,7 @@ struct OLED128x32Display : DummyDisplay
 			old_progress = 0;
 			break;
 
-		case DisplayCode::stopPlaying:
+		case DisplayCode::stop_playing:
 			if (true)
 			{
 				auto stop_time = millis();
@@ -431,7 +439,7 @@ struct OLED128x32Display : DummyDisplay
 			}
 			break;
 
-		case DisplayCode::cancelPlaying:
+		case DisplayCode::cancel_playing:
 			if (true)
 			{
 				auto cancel_time = millis();
@@ -485,6 +493,7 @@ struct OLED128x32Display : DummyDisplay
 };
 
 SSD1306AsciiAvrI2c OLED128x32Display::oled;
+bool               OLED128x32Display::present = false;
 byte               OLED128x32Display::scroll_pos = 0;
 char               OLED128x32Display::scroll_dir = 0;
 unsigned long      OLED128x32Display::scroll_time = millis() + OLED128x32Display::SCROLL_WAIT;

@@ -8,8 +8,6 @@ extern bool serial_debug;
 
 //-----------------------------------------------------------------------------
 
-#define IR_RECV_PIN 55 // IR Pin
-
 template< typename ...Inputs >
 struct KeyPadInputSelector;
 
@@ -91,7 +89,7 @@ struct LCD16x2KeyPadV1Input : KeyPadInputSelector<>
 		int value = analogRead(0);
 
 		// Binary search of:
-		//   if k exists when the given value is inside [under(BVk), upper(BVk)] then get BCk else get none. 
+		//   if k exists when the given value is inside ]lower(BVk), upper(BVk)[ then get BCk else get none. 
 		//
 		//               BV2
 		//              /   \
@@ -102,6 +100,7 @@ struct LCD16x2KeyPadV1Input : KeyPadInputSelector<>
 		//       IC0 IC1 IC2 IC3 IC4
 		auto received_code =
 			// Condition								Result
+			// ---------------------------------------  ---------------
 			(value < upper(BV2))
 			/**/ ? (value < lower(BV2))
 			/*******/ ? (value < upper(BV1))

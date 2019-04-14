@@ -2,7 +2,7 @@
 
 #define HAS_INPUT_KEYPAD 1
 #define HAS_INPUT_IRREMOTE 1
-#define HAS_INPUT_ROTARY_ENCODER 0
+#define HAS_INPUT_ROTARY_ENCODER 1
 
 enum class InputCode : int8_t
 {
@@ -64,8 +64,8 @@ template<typename Tail> struct InputReaderSelector< Tail >
 	}
 };
 
-#include "mz-sd2cmt.input.irremote.h"
 #include "mz-sd2cmt.input.keypad.h"
+#include "mz-sd2cmt.input.irremote.h"
 #include "mz-sd2cmt.input.rotary_encoder.h"
 
 using InputReader = InputReaderSelector< RotaryEncoderInput, KeyPadInput, IRRemoteInput >;

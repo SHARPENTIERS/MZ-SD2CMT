@@ -1,7 +1,7 @@
 #pragma once
 
 #define HAS_LCD16X2_DISPLAY 1
-#define HAS_OLED128X32_DISPLAY 0
+#define HAS_OLED128X32_DISPLAY 1
 #define HAS_LED_DISPLAY 1
 
 extern unsigned long progress_size;
@@ -16,11 +16,11 @@ enum class DisplayCode : int8_t
 	set_entry_name,
 	scroll_entry_name,
 
-	startPlaying,
-	stopPlaying,
+	start_playing,
+	stop_playing,
 	pausePlaying,
 	resumePlaying,
-	cancelPlaying,
+	cancel_playing,
 
 	updateProgressBar
 };
@@ -34,8 +34,8 @@ struct DummyDisplay
 };
 
 #include "mz-sd2cmt.display.lcd16x2.h"
-#include "mz-sd2cmt.display.oled128x32.h"
 #include "mz-sd2cmt.display.led.h"
+#include "mz-sd2cmt.display.oled128x32.h"
 #include "mz-sd2cmt.display.serial.h"
 
 template<typename Head, typename... Rest> struct DisplaySelector
@@ -88,4 +88,4 @@ template<typename Tail> struct DisplaySelector< Tail >
 	}
 };
 
-using Display = DisplaySelector< LCD16x2Display, OLED128x32Display, LedDisplay, SerialDisplay >;
+using Display = DisplaySelector< OLED128x32Display, LedDisplay, LCD16x2Display, SerialDisplay >;

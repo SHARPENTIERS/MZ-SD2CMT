@@ -48,7 +48,7 @@ struct IRRemoteInputSelector : IRRemoteInputSelector<>, InputReaderSelector< Inp
 			{
 				uint32_t value = results.value;
 
-				Serial.print(value, HEX);
+				if (serial_debug) Serial.print(value, HEX);
 			}
 
 			validate_code = false;
@@ -97,8 +97,6 @@ struct KeyesIRRemoteInput : IRRemoteInputSelector<>
 	static bool readCode(InputCode& code)
 	{
 		uint32_t value = results.value;
-
-		Serial.println(results.decode_type, HEX);
 
 		switch (value)
 		{
@@ -163,8 +161,8 @@ struct KeyesIRRemoteInput : IRRemoteInputSelector<>
 			if (accepted_code)
 			{
 				size_t mask =
-					(repeat_count < (4* 0 + 8*5)) ?8:
-					(repeat_count < (4*15 + 8*5)) ?4:
+					(repeat_count < (4* 0 + 8*5)) ? 8 :
+					(repeat_count < (4*15 + 8*5)) ? 4 :
 						                            2;
 				if (mask > 2)
 					++repeat_count;
