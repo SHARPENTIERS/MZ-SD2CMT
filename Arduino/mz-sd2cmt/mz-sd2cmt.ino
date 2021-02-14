@@ -2,6 +2,8 @@
 #include <Arduino.h>
 
 #include "mz-sd2cmt.gpio.h"
+#include "mz-sd2cmt.osp.h"
+#include "mz-sd2cmt.std.h"
 #include "mz-sd2cmt.serial.h"
 #include "mz-sd2cmt.storage.h"
 #include "mz-sd2cmt.input.h"
@@ -29,7 +31,7 @@ InputCode readInput()
 {
 	auto result = InputCode::none;
 
-	return InputReader::readCode(result) ? result : InputCode::none;
+	return InputReader.readCode(result) ? result : InputCode::none;
 }
 
 unsigned long		progress_size;
@@ -99,91 +101,13 @@ char const			loader_buffer[] =
     "\xE9"                //      jp      (hl)            ; at this point, 44544 bytes should be loaded in 7.4s in theory but Arduino needs to read bytes 
 };
 
-class OneShortPulse
-{
-    unsigned long	time_point;
-
-public:
-    OneShortPulse() : time_point(micros())
-    {}
-
-    inline void setup(bool b)
-    {
-        TCCR3B = 0;
-        TCNT3 = 0x0000;
-        ICR3 = 0;
-        OCR3B = 0xffff;
-        TCCR3A = (b << COM3B0) | (1 << COM3B1) | (1 << WGM31);
-        TCCR3B = (1 << WGM32 ) | (1 << WGM33 ) | (1 << CS30 );
-        DDRE = (1 << 4);
-    }
-
-    inline bool inProgress()
-    {
-        return TCNT3 > 0;
-    }
-
-    static inline void fire()
-    {
-        TCNT3 = OCR3B - 1;
-    }
-
-    static inline void fire(uint16_t cycles)
-    {
-        uint16_t m = 0xffff - (cycles - 1);
-        OCR3B = m;
-        TCNT3 = m - 1;
-    }
-
-    inline void fire(unsigned long mark, unsigned long total)
-    {
-        time_point = micros() + total;
-        fire(uint16_t(mark * (F_CPU / 1000000)));
-    }
-
-    inline void adjustWait(unsigned long us)
-    {
-        time_point += us;
-    }
-
-
-    inline void wait()
-    {
-        while (micros() < time_point);
-    }
-
-    inline void setLevel(bool b)
-    {
-        if (b)
-        {
-            TCCR3A |= (1 << COM3B0);
-        }
-        else
-        {
-            TCCR3A &= ~(1 << COM3B0);
-        }
-    }
-
-    inline void start()
-    {
-        TCNT3 = 0x0000;
-        OCR3B = 0xffff;
-        TCCR3B = (1 << WGM32) | (1 << WGM33) | (1 << CS30);
-        time_point = micros();
-    }
-
-    inline void stop()
-    {
-        TCCR3B = 0;
-        time_point = micros();
-    }
-} osp;
+OneShortPulse<3> Osp3;
 
 /// This function handles the case where LEFT button is pressed.
 void leftPressed()
 {
-	if (Storage::leaveDir())
-		Display::displayCode(DisplayCode::set_entry_name);
+	if (Storage.leaveDir())
+		Display.displayCode(DisplayCode::set_entry_name);
 }
 
 /// This function handles the case where RIGHT button is pressed.
@@ -191,51 +115,51 @@ void rightPressed()
 {
     ultrafast_enabled = !ultrafast_enabled;
 
-	Display::displayCode(DisplayCode::set_entry_name);
+	Display.displayCode(DisplayCode::set_entry_name);
 }
 
 /// This function handles the case where UP button is pressed.
 void upPressed()
 {
-    Storage::fetchEntry(Storage::entry_index - 1);
+    Storage.fetchEntry(Storage.entry_index - 1);
 
-	Display::displayCode(DisplayCode::set_entry_name);
+	Display.displayCode(DisplayCode::set_entry_name);
 }
 
 /// This function handles the case where DOWN button is pressed.
 void downPressed()
 {
-	Storage::fetchEntry(Storage::entry_index + 1);
+	Storage.fetchEntry(Storage.entry_index + 1);
 
-	Display::displayCode(DisplayCode::set_entry_name);
+	Display.displayCode(DisplayCode::set_entry_name);
 }
 
 /// This function handles the case where SELECT button is pressed.
 void selectPressed()
 {
-    switch (Storage::entry_type)
+    switch (Storage.entry_type)
     {
     case ENTRY_DIR:
-		if (Storage::enterDir())
-			Display::displayCode(DisplayCode::set_entry_name);
+		if (Storage.enterDir())
+			Display.displayCode(DisplayCode::set_entry_name);
 		break;
 
     case ENTRY_LEP:
 	case ENTRY_WAV:
 	case ENTRY_MZF:
 
-		Storage::entry.rewind();
+		Storage.entry.rewind();
 
-		Display::displayCode(DisplayCode::start_playing);
+		Display.displayCode(DisplayCode::start_playing);
 
-        /**/ if (Storage::entry_type == ENTRY_LEP)
+        /**/ if (Storage.entry_type == ENTRY_LEP)
             playLEP();
-		else if (Storage::entry_type == ENTRY_WAV)
+		else if (Storage.entry_type == ENTRY_WAV)
 			playWAV();
 		else
             playMZF();
 
-		Display::displayCode((canceled) ? DisplayCode::cancel_playing : DisplayCode::stop_playing);
+		Display.displayCode((canceled) ? DisplayCode::cancel_playing : DisplayCode::stop_playing);
 
 		break;
 
@@ -257,7 +181,7 @@ void playLEP()
     char          prev = 0, data, next = 0; // LEP bytes read from the SD
     unsigned long count = 0;                // number of LEP bytes read progressively
     unsigned long led_period = 0;           // blinking period for 512 bytes LEP read
-    unsigned long total = Storage::entry.fileSize(); // total number of LEP bytes to read
+    unsigned long total = Storage.entry.fileSize(); // total number of LEP bytes to read
     unsigned long old_progress = -1;
     unsigned long new_progress = 0;
 
@@ -267,18 +191,18 @@ void playLEP()
 
 	set_port_bit(MZT_CS, 0); // signal /SENSE at 0 to acknowledge the MZ that data is ready
 
-	osp.start();
-	osp.adjustWait(2000000); // foolish MONITOR MOTOR call which waits for 2s
+	Osp3.start();
+	Osp3.adjustWait(2000000); // foolish MONITOR MOTOR call which waits for 2s
 
-	while (Storage::entry.available() || next) // read all the LEP bytes from the file
+	while (Storage.entry.available() || next) // read all the LEP bytes from the file
 	{
 		if (get_port_bit(MZT_MI) == 0) // MOTOR at 0, pause
 		{
 			Display::setLed(false); // LED off
 
-			osp.stop();
+			Osp3.stop();
 
-			Display::displayCode(DisplayCode::pausePlaying);
+			Display.displayCode(DisplayCode::pause_playing);
 
 			while (get_port_bit(MZT_MI) == 0) // as long as MOTOR does not resume
 			{
@@ -290,10 +214,10 @@ void playLEP()
 				}
 			}
 
-			Display::displayCode(DisplayCode::resumePlaying);
+			Display.displayCode(DisplayCode::resume_playing);
 
-			osp.start();
-			osp.adjustWait(2000000); // foolish MONITOR MOTOR call which waits for 2s
+			Osp3.start();
+			Osp3.adjustWait(2000000); // foolish MONITOR MOTOR call which waits for 2s
 		}
 
 		if (next) // the following LEP byte is immediately available
@@ -304,20 +228,20 @@ void playLEP()
 		}
 		else
 		{
-			data = Storage::entry.read(); // otherwise we read it from the SD
+			data = Storage.entry.read(); // otherwise we read it from the SD
 			++count;
 
 			if (data < 0) // if the new LEP byte is a mark period
 			{
 				if (count < total)
 				{
-					next = Storage::entry.read(); // read in advance the following LEP byte
+					next = Storage.entry.read(); // read in advance the following LEP byte
 
 					new_progress = (5 * 16 * count) / total;
 					if (old_progress != new_progress)
 					{
 						progress_size = new_progress;
-						Display::displayCode(DisplayCode::updateProgressBar);
+						Display.displayCode(DisplayCode::updateProgressBar);
 						old_progress = new_progress;
 					}
 				}
@@ -326,23 +250,23 @@ void playLEP()
 
 		/**/ if (data == 0)
 		{
-			/**/ if (prev < 0) period1 += 127 * Storage::lep_unit; // very long period ...
-			else if (prev > 0) period0 += 127 * Storage::lep_unit; // very long period ...
+			/**/ if (prev < 0) period1 += 127 * Storage.lep_unit; // very long period ...
+			else if (prev > 0) period0 += 127 * Storage.lep_unit; // very long period ...
 		}
 		else if (data < 0)
 		{
-			period1 = -data * Storage::lep_unit; // in absolute value
+			period1 = -data * Storage.lep_unit; // in absolute value
 			prev = data;
 		}
 		else
 		{
-			period0 = +data * Storage::lep_unit; // in absolute value
+			period0 = +data * Storage.lep_unit; // in absolute value
 			prev = data;
 
-			osp.wait();
-			osp.fire(period1, period1 + period0); // and we update the level output DATA IN
+			Osp3.wait();
+			Osp3.fire(period1, period1 + period0); // and we update the level output DATA IN
 
-			if (Storage::entry.available())
+			if (Storage.entry.available())
 			{
 				period1 = 0;
 				period0 = 0;
@@ -358,15 +282,15 @@ void playLEP()
         }
     }
 
-	osp.wait();
-	osp.fire(period1, period1 + period0); // and we update the level output DATA IN
-	osp.wait();
+	Osp3.wait();
+	Osp3.fire(period1, period1 + period0); // and we update the level output DATA IN
+	Osp3.wait();
 
 	Display::setLed(false); // it's over, no more led.
 
 	set_port_bit(MZT_CS, 1); // reset the /SENSE signal to 1
 
-	osp.stop();
+	Osp3.stop();
 }
 
 /// This function plays a WAV file.
@@ -377,7 +301,7 @@ void playWAV()
 	char          prev = 0, data, next = 0; // WAV bytes read from the SD
 	unsigned long count = 0;                // number of WAV bytes read progressively
 	unsigned long led_period = 0;           // blinking period for 512 pulses read
-	unsigned long total = Storage::entry.fileSize(); // total number of LEP bytes to read
+	unsigned long total = Storage.entry.fileSize(); // total number of LEP bytes to read
 	unsigned long old_progress = -1;
 	unsigned long new_progress = 0;
 
@@ -404,7 +328,7 @@ void playWAV()
 	} buffer;
 
 	// must start with WAVE header
-	if (Storage::entry.read(&buffer, 12) != 12	||
+	if (Storage.entry.read(&buffer, 12) != 12	||
 		strncmp(buffer.riff.id,   "RIFF", 4)	||
 		strncmp(buffer.riff.data, "WAVE", 4))
 	{
@@ -413,7 +337,7 @@ void playWAV()
 	}
 
 	// next chunk must be fmt
-	if (Storage::entry.read(&buffer, 8) != 8	||
+	if (Storage.entry.read(&buffer, 8) != 8	||
 		strncmp(buffer.riff.id, "fmt ", 4))
 	{
 		Serial.println(F("WAV: No 'fmt'!"));
@@ -424,7 +348,7 @@ void playWAV()
 	auto size = buffer.riff.size;
 	if (size == 16 || size == 18)
 	{
-		if (Storage::entry.read(&buffer, size) != (int16_t)size)
+		if (Storage.entry.read(&buffer, size) != (int16_t)size)
 		{
 			Serial.println(F("WAV: Invalid 'fmt'!"));
 			return;
@@ -461,34 +385,34 @@ void playWAV()
 
 	set_port_bit(MZT_CS, 0); // signal /SENSE at 0 to acknowledge the MZ that data is ready
 
-	osp.start();
-	osp.adjustWait(2000000); // foolish MONITOR MOTOR call which waits for 2s
+	Osp3.start();
+	Osp3.adjustWait(2000000); // foolish MONITOR MOTOR call which waits for 2s
 
 	auto readBytes = [&]()
 	{
 		char accumulator = 0;
 		do
 		{
-			char sample = char(Storage::entry.read());
+			char sample = char(Storage.entry.read());
 			++count;
 			/**/ if (sample < 0) --accumulator;
 			else if (sample > 0) ++accumulator;
 			else                   accumulator = 0;
 		}
-		while (Storage::entry.available() && (0x80 & (char(-Storage::entry.peek()) ^ accumulator)));
+		while (Storage.entry.available() && (0x80 & (char(-Storage.entry.peek()) ^ accumulator)));
 
 		return accumulator;
 	};
 
-	while (Storage::entry.available() || next)
+	while (Storage.entry.available() || next)
 	{
 		if (get_port_bit(MZT_MI) == 0) // MOTOR at 0, pause
 		{
 			Display::setLed(false); // LED off
 
-			osp.stop();
+			Osp3.stop();
 
-			Display::displayCode(DisplayCode::pausePlaying);
+			Display.displayCode(DisplayCode::pause_playing);
 
 			while (get_port_bit(MZT_MI) == 0) // as long as MOTOR does not resume
 			{
@@ -500,10 +424,10 @@ void playWAV()
 				}
 			}
 
-			Display::displayCode(DisplayCode::resumePlaying);
+			Display.displayCode(DisplayCode::resume_playing);
 
-			osp.start();
-			osp.adjustWait(2000000); // foolish MONITOR MOTOR call which waits for 2s
+			Osp3.start();
+			Osp3.adjustWait(2000000); // foolish MONITOR MOTOR call which waits for 2s
 		}
 
 		if (next) // the following samples are immediately available
@@ -517,7 +441,7 @@ void playWAV()
 
 			if (data < 0) // if it is a mark period
 			{
-				if (Storage::entry.available())
+				if (Storage.entry.available())
 				{
 					next = readBytes(); // read in advance the following samples
 
@@ -525,7 +449,7 @@ void playWAV()
 					if (old_progress != new_progress)
 					{
 						progress_size = new_progress;
-						Display::displayCode(DisplayCode::updateProgressBar);
+						Display.displayCode(DisplayCode::updateProgressBar);
 						old_progress = new_progress;
 					}
 				}
@@ -547,10 +471,10 @@ void playWAV()
 			period0 = +data; // in absolute value
 			prev = data;
 
-			osp.wait();
-			osp.fire(period1 * 1000000 / wav_rate, (period1 + period0) * 1000000 / wav_rate); // and we update the level output DATA IN
+			Osp3.wait();
+			Osp3.fire(period1 * 1000000 / wav_rate, (period1 + period0) * 1000000 / wav_rate); // and we update the level output DATA IN
 
-			if (Storage::entry.available())
+			if (Storage.entry.available())
 			{
 				period1 = 0;
 				period0 = 0;
@@ -566,15 +490,15 @@ void playWAV()
 		}
 	}
 
-	osp.wait();
-	osp.fire(period1 * 1000000 / wav_rate, (period1 + period0) * 1000000 / wav_rate); // and we update the level output DATA IN
-	osp.wait();
+	Osp3.wait();
+	Osp3.fire(period1 * 1000000 / wav_rate, (period1 + period0) * 1000000 / wav_rate); // and we update the level output DATA IN
+	Osp3.wait();
 
 	Display::setLed(false); // it's over, no more led.
 
 	set_port_bit(MZT_CS, 1); // reset the /SENSE signal to 1
 
-	osp.stop();
+	Osp3.stop();
 }
 
 enum LegacyStep
@@ -616,7 +540,7 @@ void playMZF()
 	char          data;                              // LEP bytes read from the SD
 	unsigned long count = 0;                         // number of bytes read progressively
 	unsigned long led_period = 0;                    // blinking period for 512 bytes read
-	unsigned long total = Storage::entry.fileSize(); // total number of bytes to read
+	unsigned long total = Storage.entry.fileSize();  // total number of bytes to read
 	unsigned long fsize = total;
 	unsigned long old_progress = -1;
 	unsigned long new_progress = 0;
@@ -632,8 +556,8 @@ void playMZF()
 
 	canceled = false;
 
-	osp.start();
-	osp.adjustWait(2000000); // 2s
+	Osp3.start();
+	Osp3.adjustWait(2000000); // 2s
 
 	Display::setLed(led); // led light off initially
 
@@ -641,7 +565,7 @@ void playMZF()
 
 	if (total > 128)
 	{
-		if (Storage::entry.read(header_buffer, 128) != 128)
+		if (Storage.entry.read(header_buffer, 128) != 128)
 		{
 			canceled = true;
 			step = SHARP_PWM_END;
@@ -688,7 +612,7 @@ void playMZF()
 	{
 		if (step != SHARP_PWM_ULTRAFAST && get_port_bit(MZT_MI) == 0) // MOTOR at 0, pause
 		{
-			bool multiple_data = Storage::entry.available() != 0;
+			bool multiple_data = Storage.entry.available() != 0;
 
 			if (!header && ultrafast)
 			{
@@ -698,7 +622,7 @@ void playMZF()
 
 				set_port_bit(MZT_CS, 1);
 
-				osp.setLevel(1);
+				Osp3.setLevel(1);
 
 				delay(100);
 
@@ -707,14 +631,14 @@ void playMZF()
 
 			if (header || multiple_data)
 			{
-				osp.stop();
+				Osp3.stop();
 
 				Display::setLed(false); // LED off
 
 				// TODO:
 				Serial.print(F("Waiting for motor on... "));
 
-				Display::displayCode(DisplayCode::pausePlaying);
+				Display.displayCode(DisplayCode::pause_playing);
 
 				while (get_port_bit(MZT_MI) == 0) // as long as MOTOR does not resume
 				{
@@ -730,19 +654,19 @@ void playMZF()
 				// TODO:
 				Serial.println(F("Done!"));
 
-				Display::displayCode(DisplayCode::resumePlaying);
+				Display.displayCode(DisplayCode::resume_playing);
 
 				if (!header)
 				{
-					total = Storage::entry.available();
+					total = Storage.entry.available();
 
 					// TODO:
 					Serial.print(F("Secondary data block size: "));
 					Serial.println(total);
 				}
 
-				osp.start();
-				osp.adjustWait(2000000); // 2s
+				Osp3.start();
+				Osp3.adjustWait(2000000); // 2s
 
 				header = false;
 				step = SHARP_PWM_BEGIN;
@@ -807,7 +731,7 @@ void playMZF()
 			break;
 
 		case SHARP_PWM_BB1:
-			data = header ? header_buffer[count] : ultrafast ? jumper_buffer[count - 128] : Storage::entry.read();
+			data = header ? header_buffer[count] : ultrafast ? jumper_buffer[count - 128] : Storage.entry.read();
 			++count;
 			period1 = lp1;
 			period0 = lp0;
@@ -909,7 +833,7 @@ void playMZF()
 				// DI          \_________/  : Arduino watches SI edge changes so it can send the next bit 
 
 				size_t n = loop / 8;
-				if (n = Storage::entry.read(header_buffer, (n <= sizeof(header_buffer)) ? n : sizeof(header_buffer)))
+				if (n = Storage.entry.read(header_buffer, (n <= sizeof(header_buffer)) ? n : sizeof(header_buffer)))
 				{
 					for (size_t i = 0; i < n; ++i)
 					{
@@ -920,13 +844,13 @@ void playMZF()
 						{
 							while (get_port_bit(MZT_DI) != 0);
 
-							osp.setLevel(!!(data & 0x80));
+							Osp3.setLevel(!!(data & 0x80));
 
 							set_port_bit(MZT_CS, 0);
 
 							while (get_port_bit(MZT_DI) == 0);
 
-							osp.setLevel(!!(data & 0x40));
+							Osp3.setLevel(!!(data & 0x40));
 
 							set_port_bit(MZT_CS, 1);
 
@@ -957,15 +881,15 @@ void playMZF()
 			if (old_progress != new_progress)
 			{
 				progress_size = new_progress;
-				Display::displayCode(DisplayCode::updateProgressBar);
+				Display.displayCode(DisplayCode::updateProgressBar);
 				old_progress = new_progress;
 			}
 		}
 
 		/**/ if (step < SHARP_PWM_ULTRAFAST)
 		{
-			osp.wait();
-			osp.fire(period1, period1 + period0);
+			Osp3.wait();
+			Osp3.fire(period1, period1 + period0);
 		}
 
 		++led_period;
@@ -981,18 +905,21 @@ void playMZF()
 
 	set_port_bit(MZT_CS, 1); // reset the /SENSE signal to 1
 
-	osp.stop();
-	osp.setLevel(0);
+	Osp3.stop();
+	Osp3.setLevel(0);
 }
 
 void setup()
 {
-    osp.setup(1);
+    Osp3.setup(1);
 
-	SerialPrompt::setup();
-	InputReader::setup();
-	Storage::setup();
-	Display::setup();
+	SerialPrompt.setup();
+	
+	InputReader.setup();
+	
+	Display.setup();
+
+	Storage.setup();
 
     pinMode(MZT_DI, INPUT_PULLUP);
     pinMode(MZT_CS, OUTPUT);
@@ -1000,28 +927,30 @@ void setup()
 
 	set_port_bit(MZT_CS, 1); // signal /SENSE à 1 (lecteur non disponible)
 
-    if (!Storage::sd_ready)
+    if (!Storage.sd_ready)
 	{
-        Display::displayCode(DisplayCode::no_sdcard);
+        Display.displayCode(DisplayCode::no_sdcard);
     }
 
-	if (Storage::enterDir())
-		Display::displayCode(DisplayCode::set_entry_name);
+	if (Storage.enterDir())
+	{
+		Display.displayCode(DisplayCode::set_entry_name);
+	}
 }
 
 void loop()
 {
-	osp.setLevel(0);
+	Osp3.setLevel(0);
 
 	SerialCode	serialCode = SerialCode::none;
 	InputCode	inputCode = InputCode::none;
 
-	if (SerialPrompt::readCode(serialCode))
+	if (SerialPrompt.readCode(serialCode))
 	{
 		// Do something with Serial?
 	}
 
-	if (InputReader::readCode(inputCode))
+	if (InputReader.readCode(inputCode))
 	{
 		switch (inputCode)
 		{
@@ -1046,5 +975,5 @@ void loop()
 		}
 	}
 
-    Display::displayCode(DisplayCode::scroll_entry_name);
+    Display.displayCode(DisplayCode::scroll_entry_name);
 }

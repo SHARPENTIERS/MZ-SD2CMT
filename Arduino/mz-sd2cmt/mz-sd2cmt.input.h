@@ -32,33 +32,33 @@ enum class InputCode : int8_t
 
 struct DummyInput
 {
-	static inline bool readCode(InputCode& code) { return false; }
-	static inline void setup() {}
-	static inline void configure() {}
+	inline bool readCode(InputCode &code) { return false; }
+	inline void setup() {}
+	inline void configure() {}
 };
 
-template<typename Head, typename... Rest> struct InputReaderSelector
+template<typename Head, typename... Rest> struct InputReaderSelector : Head, InputReaderSelector<Rest...>
 {
-	static inline bool readCode(InputCode &code)
+	inline bool readCode(InputCode &code)
 	{
 		return Head::readCode(code) or InputReaderSelector<Rest...>::readCode(code);
 	}
 
-	static inline void setup()
+	inline void setup()
 	{
 		Head::setup();
 		InputReaderSelector<Rest...>::setup();
 	}
 };
 
-template<typename Tail> struct InputReaderSelector< Tail >
+template<typename Tail> struct InputReaderSelector<Tail> : Tail
 {
-	static inline bool readCode(InputCode &code)
+	inline bool readCode(InputCode &code)
 	{
 		return Tail::readCode(code);
 	}
 
-	static inline void setup()
+	inline void setup()
 	{
 		Tail::setup();
 	}
@@ -68,4 +68,15 @@ template<typename Tail> struct InputReaderSelector< Tail >
 #include "mz-sd2cmt.input.irremote.h"
 #include "mz-sd2cmt.input.rotary_encoder.h"
 
-using InputReader = InputReaderSelector< RotaryEncoderInput, KeyPadInput, IRRemoteInput >;
+struct InputReader : InputReaderSelector<RotaryEncoderInput, KeyPadInput, IRRemoteInput>
+{
+	inline void setup()
+	{
+		InputReaderSelector::setup();
+	}
+
+	inline bool readCode(InputCode &code)
+	{
+		return InputReaderSelector::readCode(code);
+	}
+} InputReader;

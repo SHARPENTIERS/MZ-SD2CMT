@@ -145,7 +145,7 @@ struct LCD16x2Display : DummyDisplay
 	{
 		const auto n = strlen(text);
 		int i = min(scroll_pos, n);
-		lcd.createChar(5, entry_icon[Storage::entry_type]);
+		lcd.createChar(5, entry_icon[Storage.entry_type]);
 		if (refresh_all)
 		{
 			lcd.clear();
@@ -159,7 +159,7 @@ struct LCD16x2Display : DummyDisplay
 		if (!refresh_all)
 		{
 			lcd.setCursor(0, 1);
-			if (Storage::entry_type > ENTRY_DIR)
+			if (Storage.entry_type > ENTRY_DIR)
 				lcd.print(ultrafast_enabled ? F("speed: ultra-fast") : F("speed: normal"));
 		}
 		else
@@ -197,27 +197,27 @@ struct LCD16x2Display : DummyDisplay
 		case DisplayCode::set_entry_name:
 			scroll_time = millis() + SCROLL_WAIT;
 			scroll_pos = 0;
-			scrollText(Storage::lfn);
+			scrollText(Storage.lfn);
 			break;
 
 		case DisplayCode::scroll_entry_name:
 			if (millis() >= scroll_time)
 			{
-				auto n = strlen(Storage::lfn);
+				auto n = strlen(Storage.lfn);
 				switch (scroll_dir)
 				{
 				case +1:
 					if (n - scroll_pos > 15)
 					{
 						scroll_time = millis() + SCROLL_SPEED;
-						scrollText(Storage::lfn, false);
+						scrollText(Storage.lfn, false);
 						++scroll_pos;
 					}
 					else
 					{
 						scroll_dir = -1;
 						scroll_time = millis() + SCROLL_WAIT;
-						scrollText(Storage::lfn, false);
+						scrollText(Storage.lfn, false);
 					}
 					break;
 				case -1:
@@ -225,7 +225,7 @@ struct LCD16x2Display : DummyDisplay
 					{
 						scroll_time = millis() + SCROLL_SPEED;
 						--scroll_pos;
-						scrollText(Storage::lfn, false);
+						scrollText(Storage.lfn, false);
 					}
 					else
 					{
@@ -247,7 +247,7 @@ struct LCD16x2Display : DummyDisplay
 
 		case DisplayCode::start_playing:
 			scroll_pos = 0;
-			scrollText(Storage::lfn);
+			scrollText(Storage.lfn);
 			lcd.setCursor(0, 1);
 			lcd.print(F("Playing...[    ]"));
 			start_time = millis();
@@ -278,12 +278,12 @@ struct LCD16x2Display : DummyDisplay
 			}
 			break;
 
-		case DisplayCode::pausePlaying:
+		case DisplayCode::pause_playing:
 			lcd.setCursor(0, 1);
 			lcd.print(F("Paus"));
 			break;
 
-		case DisplayCode::resumePlaying:
+		case DisplayCode::resume_playing:
 			lcd.setCursor(0, 1);
 			lcd.print(F("Play"));
 			break;

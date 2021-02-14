@@ -18,8 +18,8 @@ enum class DisplayCode : int8_t
 
 	start_playing,
 	stop_playing,
-	pausePlaying,
-	resumePlaying,
+	pause_playing,
+	resume_playing,
 	cancel_playing,
 
 	updateProgressBar
@@ -31,6 +31,7 @@ struct DummyDisplay
 	static inline void displayCode(DisplayCode code) {}
 	static inline void setup() {}
 	static inline void configure() {}
+	static inline void initSdErrorHalt() {}
 };
 
 #include "mz-sd2cmt.display.lcd16x2.h"
@@ -55,17 +56,23 @@ template<typename Head, typename... Rest> struct DisplaySelector
 	static inline void setup()
 	{
 		Head::setup();
-		InputReaderSelector<Rest...>::setup();
+		DisplaySelector<Rest...>::setup();
 	}
 
 	static inline void configure()
 	{
 		Head::configure();
-		InputReaderSelector<Rest...>::configure();
+		DisplaySelector<Rest...>::configure();
+	}
+
+	static inline void initSdErrorHalt()
+	{
+		Head::initSdErrorHalt();
+		DisplaySelector<Rest...>::initSdErrorHalt();
 	}
 };
 
-template<typename Tail> struct DisplaySelector< Tail >
+template<typename Tail> struct DisplaySelector<Tail>
 {
 	static inline void setLed(bool on)
 	{
@@ -86,6 +93,29 @@ template<typename Tail> struct DisplaySelector< Tail >
 	{
 		Tail::configure();
 	}
+
+	static inline void initSdErrorHalt()
+	{
+		Tail::initSdErrorHalt();
+	}
 };
 
-using Display = DisplaySelector< OLED128x32Display, LedDisplay, LCD16x2Display, SerialDisplay >;
+struct Display : DisplaySelector<OLED128x32Display, LedDisplay, LCD16x2Display, SerialDisplay>
+{
+	inline void setup()
+	{
+		DisplaySelector::setup();
+	}
+
+	inline void initSdErrorHalt()
+	{
+		DisplaySelector::initSdErrorHalt();
+
+		SysCall::halt();
+	}
+
+	inline void displayCode(DisplayCode code)
+	{
+		DisplaySelector::displayCode(code);
+	}
+} Display;

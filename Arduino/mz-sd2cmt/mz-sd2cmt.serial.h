@@ -5,16 +5,16 @@ enum class SerialCode : int8_t
 	none
 };
 
-bool serial_debug = false;
+bool serial_debug = true;
 
 struct SerialPrompt
 {
-	static void setup()
+	void setup()
 	{
 		Serial.begin(115200);
 	}
 
-	static bool readCode(SerialCode& code)
+	bool readCode(SerialCode& code)
 	{
 		if (Serial.available())
 		{
@@ -37,4 +37,4 @@ struct SerialPrompt
 
 		return false;
 	}
-};
+} SerialPrompt;

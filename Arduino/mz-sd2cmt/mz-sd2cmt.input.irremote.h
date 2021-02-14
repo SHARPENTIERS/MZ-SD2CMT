@@ -10,62 +10,35 @@ extern bool serial_debug;
 
 //-----------------------------------------------------------------------------
 
-#define IR_RECV_PIN 55 // IR Pin
-
-template< typename ...Inputs >
-struct IRRemoteInputSelector;
-
-template<>
-struct IRRemoteInputSelector<>
+enum IRRemoteCodeState
 {
-	static IRrecv	      recv;
-	static decode_results results;
+	IR_REMOTE_CODE_NONE,
+	IR_REMOTE_CODE_ACCEPTED,
+	IR_REMOTE_CODE_REPEATED
+};
 
-	static InputCode      previous_code;
-	static size_t         repeated_code;
-	static bool           accepted_code;
-	static bool           validate_code;
-	static size_t         repeat_count;
+//-----------------------------------------------------------------------------
 
-	static inline void setup()
+template<typename Head, typename... Rest> struct IRRemoteInputSelector : Head, IRRemoteInputSelector<Rest...>
+{
+	template<typename Derived>
+	static inline IRRemoteCodeState readCode(Derived* that, InputCode &code)
 	{
-		recv.enableIRIn();
+		auto state = Head::readCode(that, code);
+		if (state == IR_REMOTE_CODE_NONE)
+		{
+			state = IRRemoteInputSelector<Rest...>::readCode(that, code);
+		}
+		return state;
 	}
 };
 
-template< typename ...Inputs >
-struct IRRemoteInputSelector : IRRemoteInputSelector<>, InputReaderSelector< Inputs... >
+template<typename Tail> struct IRRemoteInputSelector<Tail> : Tail
 {
-	using IRRemoteInputSelector<>::setup;
-
-	static inline bool readCode(InputCode &code)
+	template<typename Derived>
+	static inline IRRemoteCodeState readCode(Derived* that, InputCode &code)
 	{
-		bool result = false;
-
-		if (recv.decode(&results))
-		{
-			if (serial_debug)
-			{
-				uint32_t value = results.value;
-
-				if (serial_debug) Serial.print(value, HEX);
-			}
-
-			validate_code = false;
-
-			result = InputReaderSelector< Inputs... >::readCode(code);
-
-			if (not validate_code)
-			{
-				repeat_count = 0;
-				accepted_code = false;
-			}
-
-			recv.resume();
-		}
-
-
-		return result;
+		return Tail::readCode(that, code);
 	}
 };
 
@@ -92,18 +65,16 @@ struct IRRemoteInputSelector : IRRemoteInputSelector<>, InputReaderSelector< Inp
 // DOWN			FFA857
 // 3			FFB04F
 // RIGHT		FFC23D
-struct KeyesIRRemoteInput : IRRemoteInputSelector<>
+struct KeyesIRRemoteInput
 {
-	static bool readCode(InputCode& code)
+	static IRRemoteCodeState readCode(uint32_t value, InputCode &code)
 	{
-		uint32_t value = results.value;
-
 		switch (value)
 		{
 		case 0xFF02FD: // OK
 			if (serial_debug) Serial.println(" OK");
 			code = InputCode::select;
-			goto input_code_accepted;
+			return IR_REMOTE_CODE_ACCEPTED;
 		case 0xFF10EF: // 7
 			if (serial_debug) Serial.println(" 7");
 			break;
@@ -113,7 +84,7 @@ struct KeyesIRRemoteInput : IRRemoteInputSelector<>
 		case 0xFF22DD: // LEFT
 			if (serial_debug) Serial.println(" LEFT");
 			code = InputCode::left;
-			goto input_code_accepted;
+			return IR_REMOTE_CODE_ACCEPTED;
 		case 0xFF30CF: // 4
 			if (serial_debug) Serial.println(" 4");
 			break;
@@ -135,7 +106,7 @@ struct KeyesIRRemoteInput : IRRemoteInputSelector<>
 		case 0xFF629D: // UP
 			if (serial_debug) Serial.println(" UP");
 			code = InputCode::up;
-			goto input_code_accepted;
+			return IR_REMOTE_CODE_ACCEPTED;
 		case 0xFF6897: // 1
 			if (serial_debug) Serial.println(" 1");
 			break;
@@ -148,52 +119,32 @@ struct KeyesIRRemoteInput : IRRemoteInputSelector<>
 		case 0x00FFA857: // DOWN
 			if (serial_debug) Serial.println(" DOWN");
 			code = InputCode::down;
-			goto input_code_accepted;
+			return IR_REMOTE_CODE_ACCEPTED;
 		case 0x00FFB04F: // 3
 			if (serial_debug) Serial.println(" 3");
 			break;
 		case 0x00FFC23D: // RIGHT
 			if (serial_debug) Serial.println(" RIGHT");
 			code = InputCode::right;
-			goto input_code_accepted;
+			return IR_REMOTE_CODE_ACCEPTED;
 		case 0xFFFFFFFF: // Repeat previous code
 			if (serial_debug) Serial.println(" Repeated");
-			if (accepted_code)
-			{
-				size_t mask =
-					(repeat_count < (4* 0 + 8*5)) ? 8 :
-					(repeat_count < (4*15 + 8*5)) ? 4 :
-						                            2;
-				if (mask > 2)
-					++repeat_count;
-				if (++repeated_code & mask) // Slow down the repeat rate
-				{
-					validate_code = true;
-					repeated_code = 0;
-					code = previous_code;
-					return true;
-				}
-			}
-			validate_code = true;
-			return false;
+			return IR_REMOTE_CODE_REPEATED;
 		default:
 			if (serial_debug) Serial.println(" Unknown");
 			break;
-		input_code_accepted:
-			accepted_code = true;
-			previous_code = code;
-			validate_code = true;
-			repeat_count = 0;
-			return true;
 		}
 
-		return false;
+		return IR_REMOTE_CODE_NONE;
 	}
 };
 
 #else
 
-using KeyesIRRemoteInput = DummyInput;
+struct KeyesIRRemoteInput
+{
+	static IRRemoteCodeState readCode(uint32_t, InputCode &) {}
+};
 
 #endif // HAS_INPUT_KEYES_IRREMOTE
 
@@ -205,18 +156,84 @@ using KeyesIRRemoteInput = DummyInput;
 
 //-----------------------------------------------------------------------------
 
-IRrecv			IRRemoteInputSelector<>::recv(IR_RECV_PIN);
-decode_results  IRRemoteInputSelector<>::results;
-InputCode       IRRemoteInputSelector<>::previous_code = InputCode::none;
-size_t          IRRemoteInputSelector<>::repeated_code = 0;
-bool            IRRemoteInputSelector<>::accepted_code = false;
-bool            IRRemoteInputSelector<>::validate_code = false;
-size_t          IRRemoteInputSelector<>::repeat_count = 0;
-
-//-----------------------------------------------------------------------------
+#define IR_RECV_PIN 55 // IR Pin
 
 // Insert your other IR remote models in the selector list
-using IRRemoteInput = IRRemoteInputSelector< KeyesIRRemoteInput >;
+struct IRRemoteInput : IRRemoteInputSelector<KeyesIRRemoteInput>
+{
+	IRrecv	       recv{ IR_RECV_PIN };
+	decode_results results;
+
+	InputCode      previous_code = InputCode::none;
+	size_t         repeated_code = 0;
+	bool           accepted_code = false;
+	bool           validate_code = false;
+	size_t         repeat_count = 0;
+
+	inline void setup()
+	{
+		recv.enableIRIn();
+	}
+
+	inline bool readCode(InputCode &code)
+	{
+		bool result = false;
+
+		if (recv.decode(&results))
+		{
+			if (serial_debug)
+			{
+				uint32_t value = results.value;
+
+				if (serial_debug) Serial.print(value, HEX);
+			}
+
+			validate_code = false;
+
+			switch (IRRemoteInputSelector::readCode(this, code))
+			{
+			case IR_REMOTE_CODE_NONE:
+				result = false;
+				repeat_count = 0;
+				accepted_code = false;
+				break;
+			case IR_REMOTE_CODE_ACCEPTED:
+				result = true;
+				accepted_code = true;
+				previous_code = code;
+				validate_code = true;
+				repeat_count = 0;
+				break;
+			case IR_REMOTE_CODE_REPEATED:
+				if (accepted_code)
+				{
+					size_t mask =
+						(repeat_count < (4 *  0 + 8 * 5)) ? 8 :
+						(repeat_count < (4 * 15 + 8 * 5)) ? 4 :
+						                                    2 ;
+					if (mask > 2)
+					{
+						result = false;
+						++repeat_count;
+					}
+					if (++repeated_code & mask) // Slow down the repeat rate
+					{
+						result = true;
+						validate_code = true;
+						repeated_code = 0;
+						code = previous_code;
+					}
+				}
+				validate_code = true;
+				break;
+			}
+
+			recv.resume();
+		}
+
+		return result;
+	}
+};
 
 #else
 

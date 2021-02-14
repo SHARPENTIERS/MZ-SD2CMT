@@ -7,14 +7,14 @@ struct SerialDisplay : DummyDisplay
 		switch (code)
 		{
 		case DisplayCode::set_entry_name:
-			if (Storage::entry_exists)
+			if (Storage.entry_exists)
 			{
-				Storage::entry.printFileSize(&Serial);
+				Storage.entry.printFileSize(&Serial);
 				Serial.write(' ');
-				Storage::entry.printModifyDateTime(&Serial);
+				Storage.entry.printModifyDateTime(&Serial);
 				Serial.write(' ');
-				Storage::entry.printName(&Serial);
-				if (Storage::entry.isDir())
+				Storage.entry.printName(&Serial);
+				if (Storage.entry.isDir())
 				{
 					Serial.write('/');
 				}

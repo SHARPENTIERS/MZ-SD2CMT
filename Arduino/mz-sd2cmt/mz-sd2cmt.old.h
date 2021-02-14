@@ -14,8 +14,8 @@ static const unsigned long lp0 = 958; // long period for signal 0
 
 void sendBit(unsigned long p1, unsigned long p0)
 {
-	osp.wait();
-	osp.fire(p1, p0);
+	Osp3.wait();
+	Osp3.fire(p1, p0);
 }
 
 void sendEdge()
@@ -140,7 +140,7 @@ void playMZF_Legacy_Procedural()
 
 	digitalWrite(MZT_LO, LOW); // led light off initially
 	digitalWrite(MZT_CS, LOW); // signal /SENSE at 0 to acknowledge the MZ that data is ready
-	osp.start();
+	Osp3.start();
 
 	int trial = 2;
 
@@ -208,6 +208,6 @@ retry:
 		}
 	}
 
-	osp.stop();
+	Osp3.stop();
 	digitalWrite(MZT_CS, HIGH); // reset the /SENSE signal to 1
 }

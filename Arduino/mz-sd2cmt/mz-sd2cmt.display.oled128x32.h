@@ -306,20 +306,20 @@ struct OLED128x32Display : DummyDisplay
 		}
 		oled.setCursor(0, 0);
 		oled.set2X();
-		oled.print("?/LWBB"[Storage::entry_type]);
+		oled.print("?/LWBB"[Storage.entry_type]);
 		oled.set1X();
 		if (refresh_all)
 		{
 			oled.setCursor(12, 1);
-			if (Storage::entry_type > ENTRY_DIR)
+			if (Storage.entry_type > ENTRY_DIR)
 				oled.print(ultrafast_enabled ? F("\x10: ultra-fast") : F("\x10: normal"));
-			if (Storage::entry_exists)
+			if (Storage.entry_exists)
 			{
 				oled.setCursor(0, 3);
 				oled.setInvertMode(true);
-				Storage::entry.printFileSize(&oled);
+				Storage.entry.printFileSize(&oled);
 				oled.write(' ');
-				Storage::entry.printModifyDateTime(&oled);
+				Storage.entry.printModifyDateTime(&oled);
 				oled.setInvertMode(false);
 			}
 		}
@@ -335,9 +335,20 @@ struct OLED128x32Display : DummyDisplay
 			oled.begin(&Adafruit128x32, I2C_ADDR);
 			oled.setFont(AsciiFont5x7);
 			oled.clear();
-			oled.print(F("SD2MZCMT"));
+			oled.set2X();
+			oled.print(F("[SD2MZCMT]"));
+			oled.set1X();
 			Serial.println("Using OLED 128x32");
 		}
+	}
+
+	static inline void initSdErrorHalt()
+	{
+		oled.clear();
+		oled.set2X();
+		oled.println(F("SD2MZCMT"));
+		oled.set1X();
+		Storage.sd.initErrorPrint(&oled);
 	}
 
 	static void displayCode(DisplayCode code)
@@ -356,27 +367,27 @@ struct OLED128x32Display : DummyDisplay
 		case DisplayCode::set_entry_name:
 			scroll_time = millis() + SCROLL_WAIT;
 			scroll_pos = 0;
-			scrollText(Storage::lfn);
+			scrollText(Storage.lfn);
 			break;
 
 		case DisplayCode::scroll_entry_name:
 			if (millis() >= scroll_time)
 			{
-				auto n = oled.strWidth(Storage::lfn) - oled.fontWidth();
+				auto n = oled.strWidth(Storage.lfn) - oled.fontWidth();
 				switch (scroll_dir)
 				{
 				case +1:
 					if (n - scroll_pos > oled.displayWidth())
 					{
 						scroll_time = millis() + SCROLL_SPEED;
-						scrollText(Storage::lfn, false);
+						scrollText(Storage.lfn, false);
 						++scroll_pos;
 					}
 					else
 					{
 						scroll_dir = -1;
 						scroll_time = millis() + SCROLL_WAIT;
-						scrollText(Storage::lfn, false);
+						scrollText(Storage.lfn, false);
 					}
 					break;
 				case -1:
@@ -384,7 +395,7 @@ struct OLED128x32Display : DummyDisplay
 					{
 						scroll_time = millis() + SCROLL_SPEED;
 						--scroll_pos;
-						scrollText(Storage::lfn, false);
+						scrollText(Storage.lfn, false);
 					}
 					else
 					{
@@ -406,7 +417,7 @@ struct OLED128x32Display : DummyDisplay
 		case DisplayCode::start_playing:
 			oled.clear();
 			scroll_pos = 0;
-			scrollText(Storage::lfn);
+			scrollText(Storage.lfn);
 			oled.set2X();
 			oled.setCursor(0, 2);
 			oled.clearToEOL();
@@ -457,7 +468,7 @@ struct OLED128x32Display : DummyDisplay
 			}
 			break;
 
-		case DisplayCode::pausePlaying:
+		case DisplayCode::pause_playing:
 			oled.set2X();
 			oled.setCursor(0, 2);
 			oled.write('\x13');
@@ -465,7 +476,7 @@ struct OLED128x32Display : DummyDisplay
 			oled.print(F("Paus"));
 			break;
 
-		case DisplayCode::resumePlaying:
+		case DisplayCode::resume_playing:
 			oled.set2X();
 			oled.setCursor(0, 2);
 			oled.write('\x10');
