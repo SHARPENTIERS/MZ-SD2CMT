@@ -1,8 +1,6 @@
 #pragma once
 
-#if HAS_OLED128X32_DISPLAY  
-
-#include <SSD1306Ascii.h>
+#include <SSD1306Ascii.h> // Sketch > Include library > Manage libraries > search: SSD1306Ascii, by Bill Greiman https://github.com/greiman/SSD1306Ascii
 #include <SSD1306AsciiAvrI2c.h>
 
 // standard ascii 5x7 font
@@ -273,19 +271,23 @@ GLCDFONTDECL(AsciiFont5x7) =
 
 struct OLED128x32Display : DummyDisplay
 {
+	struct Config
+	{
+		bool enabled = !!HAS_OLED128X32_DISPLAY;
+		int scroll_speed = 100; // Text scroll delay
+		int scroll_wait = 2000; // Delay before scrolling starts
+	} cfg;
+
 	static constexpr auto I2C_ADDR = 0x3C;
 
-	static constexpr auto SCROLL_SPEED = 100; // Text scroll delay;
-	static constexpr auto SCROLL_WAIT = 2000; // Delay before scrolling starts
-
-	static SSD1306AsciiAvrI2c oled;
-	static bool               present;
-	static byte               scroll_pos;
-	static char               scroll_dir;
-	static unsigned long      scroll_time;
+	SSD1306AsciiAvrI2c oled;
+	bool               present = false;
+	byte               scroll_pos = 0;
+	char               scroll_dir = 0;
+	unsigned long      scroll_time;
 
 	/// This function displays a text on the first line with a horizontal scrolling if necessary.
-	static void scrollText(char* text, bool refresh_all = true)
+	void scrollText(char* text, bool refresh_all = true)
 	{
 		if (!present) return;
 
@@ -325,33 +327,42 @@ struct OLED128x32Display : DummyDisplay
 		}
 	}
 
-	static void setup()
+	void setup()
 	{
-		Wire.begin();
-		Wire.beginTransmission(I2C_ADDR);
-		if (Wire.endTransmission() == 0)
+		if (Storage.configure(cfg, "/.config/OLED128x32.display"))
 		{
-			present = true;
-			oled.begin(&Adafruit128x32, I2C_ADDR);
-			oled.setFont(AsciiFont5x7);
-			oled.clear();
-			oled.set2X();
-			oled.print(F("[SD2MZCMT]"));
-			oled.set1X();
-			Serial.println("Using OLED 128x32");
+			Wire.begin();
+			Wire.beginTransmission(I2C_ADDR);
+			if (Wire.endTransmission() == 0)
+			{
+				present = true;
+				oled.begin(&Adafruit128x32, I2C_ADDR);
+				oled.setFont(AsciiFont5x7);
+				oled.clear();
+				oled.set2X();
+				oled.print(F("[SD2MZCMT]"));
+				oled.set1X();
+				
+				Serial.println(F("Output device: OLED 128x32 screen."));
+			}
+
+			scroll_time = millis() + cfg.scroll_wait;
 		}
 	}
 
-	static inline void initSdErrorHalt()
+	void initSdErrorHalt()
 	{
-		oled.clear();
-		oled.set2X();
-		oled.println(F("SD2MZCMT"));
-		oled.set1X();
+		if (present)
+		{
+			oled.clear();
+			oled.set2X();
+			oled.println(F("SD2MZCMT"));
+			oled.set1X();
+		}
 		Storage.sd.initErrorPrint(&oled);
 	}
 
-	static void displayCode(DisplayCode code)
+	void displayCode(DisplayCode code)
 	{
 		if (!present) return;
 
@@ -365,7 +376,7 @@ struct OLED128x32Display : DummyDisplay
 			break;
 
 		case DisplayCode::set_entry_name:
-			scroll_time = millis() + SCROLL_WAIT;
+			scroll_time = millis() + cfg.scroll_wait;
 			scroll_pos = 0;
 			scrollText(Storage.lfn);
 			break;
@@ -379,28 +390,28 @@ struct OLED128x32Display : DummyDisplay
 				case +1:
 					if (n - scroll_pos > oled.displayWidth())
 					{
-						scroll_time = millis() + SCROLL_SPEED;
+						scroll_time = millis() + cfg.scroll_speed;
 						scrollText(Storage.lfn, false);
 						++scroll_pos;
 					}
 					else
 					{
 						scroll_dir = -1;
-						scroll_time = millis() + SCROLL_WAIT;
+						scroll_time = millis() + cfg.scroll_wait;
 						scrollText(Storage.lfn, false);
 					}
 					break;
 				case -1:
 					if (scroll_pos > 0)
 					{
-						scroll_time = millis() + SCROLL_SPEED;
+						scroll_time = millis() + cfg.scroll_speed;
 						--scroll_pos;
 						scrollText(Storage.lfn, false);
 					}
 					else
 					{
 						scroll_dir = +1;
-						scroll_time = millis() + SCROLL_WAIT;
+						scroll_time = millis() + cfg.scroll_wait;
 					}
 					break;
 				default:
@@ -502,15 +513,3 @@ struct OLED128x32Display : DummyDisplay
 		}
 	}
 };
-
-SSD1306AsciiAvrI2c OLED128x32Display::oled;
-bool               OLED128x32Display::present = false;
-byte               OLED128x32Display::scroll_pos = 0;
-char               OLED128x32Display::scroll_dir = 0;
-unsigned long      OLED128x32Display::scroll_time = millis() + OLED128x32Display::SCROLL_WAIT;
-
-#else
-
-using OLED128x32Display = DummyDisplay;
-
-#endif

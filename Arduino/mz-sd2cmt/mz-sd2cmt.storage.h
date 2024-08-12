@@ -1,10 +1,10 @@
 #pragma once
 
-#include <SdFat.h> // Sketch > Include library > Manage libraries > search: SdFat, by Bill Greiman
+#include <SdFat.h>	// Sketch > Include library > Manage libraries > search: SdFat, by Bill Greiman https://github.com/greiman/SdFat
 
 #define ENTRY_UNK       0
 #define ENTRY_DIR       1
-#define ENTRY_LEP       2 // WAV-like file with 50µs/16µs resolution where a byte encodes an edge change after a period
+#define ENTRY_LEP       2 // WAV-like file with 50Âµs/16Âµs resolution where a byte encodes an edge change after a period
 #define ENTRY_WAV       3 // WAV file
 #define ENTRY_MZF       4 // well-known binary format which includes a 128-byte header block and a data block (MZF/M12).
 #define ENTRY_MZT       5 // may contain more than one 128-byte header and one data block.
@@ -12,8 +12,8 @@
 #define SPEED_NORMAL    0 // SHARP PWM system (MZ-700/800) 
 #define SPEED_ULTRAFAST 1
 
-#define L16_UNIT        16     // LEP resolution in 16µs unit
-#define L50_UNIT        50     // LEP resolution in 50µs unit
+#define L16_UNIT        16     // LEP resolution in 16Âµs unit
+#define L50_UNIT        50     // LEP resolution in 50Âµs unit
 
 struct Storage
 {
@@ -26,6 +26,13 @@ struct Storage
 	static constexpr auto	SFN_DEPTH = 13;
 	static constexpr auto	LFN_DEPTH = 100;
 
+	class SdFile : public ::SdFile
+	{
+	public:
+		// This method is present in ExFatFile and FatFile but not in FsFile. Why?
+		bool isSystem() { return attrib() & FS_ATTRIB_SYSTEM; }
+	};
+
 	bool					sd_ready = false;
 	SdFat					sd;
 	SdFile					entry;
@@ -35,9 +42,8 @@ struct Storage
 	int8_t					dir_depth = -1;
 	int16_t					dir_index[DIR_DEPTH] = {};
 	SdFile					dir[DIR_DEPTH];
-	char					sfn[SFN_DEPTH];
 	char					lfn[LFN_DEPTH + 1];
-	unsigned long			lep_unit = L16_UNIT; // 16µs by default
+	unsigned long			lep_unit = L16_UNIT; // 16Âµs by default
 	char					double_buffer[256];
 	byte					double_buffer_wpos = 0;
 	byte					double_buffer_rpos = 0;
@@ -61,6 +67,34 @@ struct Storage
 		{
 			sd.initErrorHalt();
 		}
+	}
+
+	template<typename Config>
+	bool configure(Config &cfg, char *filename)
+	{
+		File file = sd.open(filename, O_RDWR | O_CREAT);
+		bool ko = !file;
+		if (!ko)
+		{
+			ko = file.read(&cfg, sizeof(cfg)) != sizeof(cfg);
+			Serial.print(ko ? F("Invalid or no configuration file: ") : F("Loaded configuration file: "));
+			Serial.println(filename);
+		}
+		if (ko)
+		{
+			sd.mkdir(F("/.config"));
+			File root = sd.open(F("/.config"));
+			if (root) root.attrib(FS_ATTRIB_HIDDEN);
+			root.close();
+			file.seek(0);
+			ko = file.write((const uint8_t*)&cfg, sizeof(cfg)) != sizeof(cfg);
+			Serial.print(ko ? F("Failed configuration file: ") : F("Created configuration file: "));
+			Serial.println(filename);
+		}
+
+		file.close();
+
+		return !ko and cfg.enabled;
 	}
 
 	bool checkForLEP(char *filename)
@@ -147,7 +181,6 @@ struct Storage
 
 		if (found)
 		{
-			entry.getSFN(sfn);
 			entry.getName(lfn, LFN_DEPTH);
 
 			/**/ if (entry.isDir())
@@ -177,7 +210,6 @@ struct Storage
 		}
 		else
 		{
-			memset(sfn, 0, SFN_DEPTH);
 			memset(lfn, 0, LFN_DEPTH + 1);
 			strcpy(lfn, "<---------no file--------->");
 
@@ -210,7 +242,7 @@ struct Storage
 			{
 				++dir_depth;
 
-				dir[dir_depth] = entry;
+				dir[dir_depth].move(&entry);
 				dir_index[dir_depth] = entry_index;
 
 				fetchEntry(0);

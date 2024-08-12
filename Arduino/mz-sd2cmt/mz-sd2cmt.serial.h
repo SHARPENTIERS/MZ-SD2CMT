@@ -9,9 +9,16 @@ bool serial_debug = true;
 
 struct SerialPrompt
 {
+	struct Config
+	{
+		bool enabled = false; 
+	} cfg;
+
 	void setup()
 	{
 		Serial.begin(115200);
+
+		Serial.println(F("Input device: serial 115200."));
 	}
 
 	bool readCode(SerialCode& code)

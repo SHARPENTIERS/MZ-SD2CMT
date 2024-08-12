@@ -15,6 +15,8 @@ struct LedDisplay : DummyDisplay
 	{
 		set_ddr_bit (LED_OUTPUT, 1);
 		set_port_bit(LED_OUTPUT, 0);
+		
+		Serial.println(F("Output device: LED activity."));
 	}
 
 	static inline void displayCode(DisplayCode code)

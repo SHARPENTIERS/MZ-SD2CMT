@@ -1,7 +1,5 @@
 #pragma once
 
-#if HAS_INPUT_KEYPAD
-
 #define HAS_INPUT_LCD16X2_KEYPAD_V1 1
 #define HAS_INPUT_TTP223_KEYPAD 1
 
@@ -9,38 +7,38 @@ extern bool serial_debug;
 
 //-----------------------------------------------------------------------------
 
-#if HAS_INPUT_LCD16X2_KEYPAD_V1
-
 struct LCD16x2KeyPadV1Input : DummyInput
 {
+	struct Config
+	{
+		bool enabled = !!HAS_INPUT_LCD16X2_KEYPAD_V1;
+		// BVx sorted by value!
+		int BV0 = 0x0000;
+		int BV1 = 0x0063;
+		int BV2 = 0x0101;
+		int BV3 = 0x019A;
+		int BV4 = 0x0280;
+	} cfg;
+
+	static constexpr int delta = 5;
 	static constexpr unsigned long rate_time = 10 * 1000; /* 10 ms */
+
+	static constexpr InputCode IC0 = InputCode::right;
+	static constexpr InputCode IC1 = InputCode::up;
+	static constexpr InputCode IC2 = InputCode::down;
+	static constexpr InputCode IC3 = InputCode::left;
+	static constexpr InputCode IC4 = InputCode::select;
 
 	unsigned long                  last_time = 0;
 	InputCode                      previous_code = InputCode::none;
-	size_t                         repeated_code = 0;
-	bool                           validate_code = false;
-	size_t                         repeat_count = 0;
+	unsigned char                  repeated_code = 0;
+	unsigned int                   repeat_count = 0;
 
-	static constexpr int           delta = 5;
-
-	// sorted by value
-	static constexpr int BV0 = 0x0000; // TODO: make it configurable at run-time?
-	static constexpr int BV1 = 0x0063; // TODO: make it configurable at run-time?
-	static constexpr int BV2 = 0x0101; // TODO: make it configurable at run-time?
-	static constexpr int BV3 = 0x019A; // TODO: make it configurable at run-time?
-	static constexpr int BV4 = 0x0280; // TODO: make it configurable at run-time?
-
-	static constexpr InputCode IC0 = InputCode::right;  // TODO: make it configurable at run-time?
-	static constexpr InputCode IC1 = InputCode::up;     // TODO: make it configurable at run-time?
-	static constexpr InputCode IC2 = InputCode::down;   // TODO: make it configurable at run-time?
-	static constexpr InputCode IC3 = InputCode::left;   // TODO: make it configurable at run-time?
-	static constexpr InputCode IC4 = InputCode::select; // TODO: make it configurable at run-time?
-	
-	static constexpr int lower(int value)
+	constexpr inline int lower(int value) const
 	{
 		return value - delta;
 	}
-	static constexpr int upper(int value)
+	constexpr inline int upper(int value) const
 	{
 		return value + delta;
 	}
@@ -49,90 +47,89 @@ struct LCD16x2KeyPadV1Input : DummyInput
 	{
 		bool result = false;
 
-		auto current_time = micros();
-		if (current_time > last_time + rate_time)
+		if (cfg.enabled)
 		{
-			last_time = current_time;
-
-			validate_code = false;
-
-			int value = analogRead(0);
-
-			// Binary search of:
-			//   if k exists when the given value is inside ]lower(BVk), upper(BVk)[ then get BCk else get none. 
-			//
-			//               BV2
-			//              /   \
-			//           BV1     BV3
-			//          /           \
-			//       BV0             BV4
-			//       --- --- --- --- ---
-			//       IC0 IC1 IC2 IC3 IC4
-			auto received_code =
-				// Condition								Result
-				// ---------------------------------------  ---------------
-				(value < upper(BV2))
-				/**/ ? (value < lower(BV2))
-				/*******/ ? (value < upper(BV1))
-				/************/ ? (value < lower(BV1))
-				/*****************/ ? (value < upper(BV0))
-				/**********************/ ?					IC0
-				/**********************/ :					InputCode::none
-				/*****************/ :						IC1
-				/************/ :							InputCode::none
-				/*******/ :									IC2
-				/**/ : (value < upper(BV3))
-				/*******/ ? (value < lower(BV3))
-				/************/ ?							InputCode::none
-				/************/ :							IC3
-				/*******/ : (value < upper(BV4))
-				/************/ ? (value < lower(BV4))
-				/*****************/ ?						InputCode::none
-				/*****************/ :						IC4
-				/************/ :							InputCode::none
-				;
-
-			bool result = received_code != InputCode::none;
-			if (result)
+			auto current_time = micros();
+			if (current_time > last_time + rate_time)
 			{
-				if (received_code != previous_code)
+				last_time = current_time;
+
+				int value = analogRead(0);
+
+				// Binary search of:
+				//   if k exists when the given value is inside ]lower(BVk), upper(BVk)[ then get ICk else get none. 
+				//
+				//               BV2
+				//              /   \
+				//           BV1     BV3
+				//          /           \
+				//       BV0             BV4
+				//       --- --- --- --- ---
+				//       IC0 IC1 IC2 IC3 IC4
+				auto received_code =
+					// Condition								Result
+					// ---------------------------------------  ---------------
+					(value < upper(cfg.BV2))
+					/**/ ? (value < lower(cfg.BV2))
+					/*******/ ? (value < upper(cfg.BV1))
+					/************/ ? (value < lower(cfg.BV1))
+					/*****************/ ? (value < upper(cfg.BV0))
+					/**********************/ ?					IC0
+					/**********************/ :					InputCode::none
+					/*****************/ :						IC1
+					/************/ :							InputCode::none
+					/*******/ :									IC2
+					/**/ : (value < upper(cfg.BV3))
+					/*******/ ? (value < lower(cfg.BV3))
+					/************/ ?							InputCode::none
+					/************/ :							IC3
+					/*******/ : (value < upper(cfg.BV4))
+					/************/ ? (value < lower(cfg.BV4))
+					/*****************/ ?						InputCode::none
+					/*****************/ :						IC4
+					/************/ :							InputCode::none
+					;
+
+				result = received_code != InputCode::none;
+				if (result)
 				{
-					validate_code = true;
-					previous_code = received_code;
-					repeat_count = 0;
-					code = received_code;
-				}
-				else
-				{
-					size_t mask =
-						(repeat_count < (16 * 0  + 32 * 5)) ? 32 :
-						(repeat_count < (16 * 15 + 32 * 5)) ? 16 :
-															   8 ;
-					if (mask > 8)
-						++repeat_count;
-					result = 0 != (++repeated_code & mask);
-					if (result) // Slow down the repeat rate
+					if (received_code != previous_code)
 					{
-						validate_code = true;
-						repeated_code = 0;
-						code = previous_code;
+						previous_code = received_code;
+						repeat_count = 0;
+						code = received_code;
 					}
 					else
 					{
-						code = InputCode::none;
-						repeat_count = 0;
+						result = (received_code == InputCode::up) or (received_code == InputCode::down);
+						if (result)
+						{
+							unsigned char mask =
+								(repeat_count < (16 * 0  + 32 * 5)) ? 32 :
+								(repeat_count < (16 * 15 + 32 * 5)) ? 16 :
+								/* else                            */  8 ;
+							if (mask > 8)
+								++repeat_count;
+							result = 0 != (++repeated_code & mask);
+							if (result) // Slow down the repeat rate
+							{
+								repeated_code = 0;
+								code = received_code;
+							}
+						}
 					}
+					if (serial_debug and code != InputCode::none) Serial.println(value, HEX);
 				}
-			}
-			else
-			{
-				repeat_count = 0;
-				code = received_code;
-			}
-
-			if (result)
-			{
-				if (serial_debug) Serial.println(value, HEX);
+				else
+				{
+					repeat_count = 0;
+					previous_code = InputCode::none;
+				}
+				if (!result)
+				{
+					code = InputCode::none;
+					repeat_count = 0;
+				}
 			}
 		}
 
@@ -141,24 +138,36 @@ struct LCD16x2KeyPadV1Input : DummyInput
 
 	inline void setup()
 	{
+		if (Storage.configure(cfg, "/.config/LCD_KEYPAD_SHIELD.input"))
+		{
+			Serial.println(F("Input device: LCD16X2 KeyPad."));
+			Serial.print(F("  +00 Enabled: ")); Serial.println(cfg.enabled);
+			Serial.print(F("  +01 Button Voltage [RIGHT ]: ")); Serial.println(cfg.BV0, HEX);
+			Serial.print(F("  +04 Button Voltage [UP    ]: ")); Serial.println(cfg.BV1, HEX);
+			Serial.print(F("  +07 Button Voltage [DOWN  ]: ")); Serial.println(cfg.BV2, HEX);
+			Serial.print(F("  +0A Button Voltage [LEFT  ]: ")); Serial.println(cfg.BV3, HEX);
+			Serial.print(F("  +0D Button Voltage [SELECT]: ")); Serial.println(cfg.BV4, HEX);
+		}
 	}
 };
 
-#else
-
-using LCD16x2KeyPadV1Input = DummyInput;
-
-#endif
-
 //-----------------------------------------------------------------------------
-
-#if HAS_INPUT_TTP223_KEYPAD
 
 struct TTP223KeyPadInput : DummyInput
 {
-	static constexpr auto *PORTn = reinterpret_cast<volatile uint8_t *>(&PORTK);
-	static constexpr auto *PINn = reinterpret_cast<volatile uint8_t *>(&PINK);
-	static constexpr auto *DDRn = reinterpret_cast<volatile uint8_t *>(&DDRK);
+	struct Config
+	{
+		bool enabled = !!HAS_INPUT_TTP223_KEYPAD;
+		InputCode IC0 = InputCode::select;
+		InputCode IC1 = InputCode::left;
+		InputCode IC2 = InputCode::up;
+		InputCode IC3 = InputCode::down;
+		InputCode IC4 = InputCode::right;
+		InputCode IC5 = InputCode::none;
+		InputCode IC6 = InputCode::none;
+		InputCode IC7 = InputCode::none;
+		byte active = 0b00000000; // active signal on 0/1 (by default on 0)
+	} cfg;
 
 	static constexpr auto P0 = 1 << PK0;
 	static constexpr auto P1 = 1 << PK1;
@@ -173,34 +182,57 @@ struct TTP223KeyPadInput : DummyInput
 
 	bool readCode(InputCode &code)
 	{
-		byte new_state = *PINn & (P0|P1|P2|P3|P4|P5);
-		if (new_state != old_state)
+		if (cfg.enabled)
 		{
-			Serial.print(F("TTP223: "));
-			Serial.print((new_state & P0) ? "|" : "-");
-			Serial.print((new_state & P1) ? "|" : "-");
-			Serial.print((new_state & P2) ? "|" : "-");
-			Serial.print((new_state & P3) ? "|" : "-");
-			Serial.print((new_state & P4) ? "|" : "-");
-			Serial.print((new_state & P5) ? "|" : "-");
-			old_state = new_state;
+			byte new_state = PINK & ((P0|P1|P2|P3|P4|P5|P6|P7) ^ ~cfg.active);
+			if (new_state != old_state)
+			{
+				if (serial_debug)
+				{
+					Serial.print(F("TTP223: "));
+					Serial.print((new_state & P0) ? "|" : "-");
+					Serial.print((new_state & P1) ? "|" : "-");
+					Serial.print((new_state & P2) ? "|" : "-");
+					Serial.print((new_state & P3) ? "|" : "-");
+					Serial.print((new_state & P4) ? "|" : "-");
+					Serial.print((new_state & P5) ? "|" : "-");
+					Serial.print((new_state & P6) ? "|" : "-");
+					Serial.print((new_state & P7) ? "|" : "-");
+				}
+				/**/ if (new_state & P0) code = cfg.IC0;
+				else if (new_state & P1) code = cfg.IC1;
+				else if (new_state & P2) code = cfg.IC2;
+				else if (new_state & P3) code = cfg.IC3;
+				else if (new_state & P4) code = cfg.IC4;
+				else if (new_state & P5) code = cfg.IC5;
+				else if (new_state & P6) code = cfg.IC6;
+				else if (new_state & P7) code = cfg.IC7;
+				old_state = new_state;
+			}
 		}
 	}
 
 	inline void setup()
 	{
-		*DDRn &= ~(P0 | P1 | P2 | P3 | P4 | P5);
-		*PORTn &= ~(P0 | P1 | P2 | P3 | P4 | P5);
+		if (Storage.configure(cfg, "/.config/TTP223_KEYPAD.input"))
+		{
+			DDRK &= ~(P0 | P1 | P2 | P3 | P4 | P5);
+			PORTK &= ~(P0 | P1 | P2 | P3 | P4 | P5);
 
-		Serial.println(F("Input device: TTP223 KeyPad."));
+			Serial.println(F("Input device: TTP223 KeyPad."));
+			Serial.print(F("  +00 Enabled: ")); Serial.println(cfg.enabled);
+			Serial.print(F("  +01 Input Code #0: ")); Serial.println(static_cast<int>(cfg.IC0));
+			Serial.print(F("  +02 Input Code #1: ")); Serial.println(static_cast<int>(cfg.IC1));
+			Serial.print(F("  +03 Input Code #2: ")); Serial.println(static_cast<int>(cfg.IC2));
+			Serial.print(F("  +04 Input Code #3: ")); Serial.println(static_cast<int>(cfg.IC3));
+			Serial.print(F("  +05 Input Code #4: ")); Serial.println(static_cast<int>(cfg.IC4));
+			Serial.print(F("  +06 Input Code #5: ")); Serial.println(static_cast<int>(cfg.IC5));
+			Serial.print(F("  +07 Input Code #6: ")); Serial.println(static_cast<int>(cfg.IC6));
+			Serial.print(F("  +08 Input Code #7: ")); Serial.println(static_cast<int>(cfg.IC7));
+			Serial.print(F("  +09 Active: ")); Serial.println(cfg.active, BIN);
+		}
 	}
 };
-
-#else
-
-using TTP223KeyPadInput = DummyInput;
-
-#endif
 
 //-----------------------------------------------------------------------------
 
@@ -223,9 +255,3 @@ struct KeyPadInput : InputReaderSelector<LCD16x2KeyPadV1Input, TTP223KeyPadInput
 		return InputReaderSelector::readCode(code);
 	}
 };
-
-#else
-
-using KeyPadInput = DummyInput;
-
-#endif

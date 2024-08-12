@@ -34,7 +34,6 @@ struct DummyInput
 {
 	inline bool readCode(InputCode &code) { return false; }
 	inline void setup() {}
-	inline void configure() {}
 };
 
 template<typename Head, typename... Rest> struct InputReaderSelector : Head, InputReaderSelector<Rest...>

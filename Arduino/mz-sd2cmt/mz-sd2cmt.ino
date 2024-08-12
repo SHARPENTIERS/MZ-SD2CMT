@@ -1,6 +1,10 @@
 #include <Wire.h>
 #include <Arduino.h>
 
+// Sketch > Include library > Manage libraries > search: SSD1306Ascii 1.3.5, by Bill Greiman
+// Sketch > Include library > Manage libraries > search: SdFat 2.2.3, by Bill Greiman
+// Sketch > Include library > Manage libraries > search: irremote 4.4.0
+
 #include "mz-sd2cmt.gpio.h"
 #include "mz-sd2cmt.osp.h"
 #include "mz-sd2cmt.std.h"
@@ -101,7 +105,7 @@ char const			loader_buffer[] =
     "\xE9"                //      jp      (hl)            ; at this point, 44544 bytes should be loaded in 7.4s in theory but Arduino needs to read bytes 
 };
 
-OneShortPulse<3> Osp3;
+OneShortPulse Osp3;
 
 /// This function handles the case where LEFT button is pressed.
 void leftPressed()
@@ -163,9 +167,9 @@ void selectPressed()
 
 		break;
 
-    default:
-        break;
-    }
+	default:
+		break;
+	}
 }
 
 /// This function handles the case where a button is released.
@@ -176,16 +180,16 @@ void nonePressed()
 /// This function plays a LEP file.
 void playLEP()
 {
-    unsigned long period, period1, period0; // half-pulse period, mark pulse period, space pulse period 
-    bool          led = false;              // led indicating the frequency of reading data
-    char          prev = 0, data, next = 0; // LEP bytes read from the SD
-    unsigned long count = 0;                // number of LEP bytes read progressively
-    unsigned long led_period = 0;           // blinking period for 512 bytes LEP read
-    unsigned long total = Storage.entry.fileSize(); // total number of LEP bytes to read
-    unsigned long old_progress = -1;
-    unsigned long new_progress = 0;
+	unsigned long period, period1, period0; // half-pulse period, mark pulse period, space pulse period 
+	bool          led = false;              // led indicating the frequency of reading data
+	char          prev = 0, data, next = 0; // LEP bytes read from the SD
+	unsigned long count = 0;                // number of LEP bytes read progressively
+	unsigned long led_period = 0;           // blinking period for 512 bytes LEP read
+	unsigned long total = Storage.entry.fileSize(); // total number of LEP bytes to read
+	unsigned long old_progress = -1;
+	unsigned long new_progress = 0;
 
-    canceled = false;
+	canceled = false;
 
 	Display::setLed(led); // led light off initially
 
@@ -886,7 +890,7 @@ void playMZF()
 			}
 		}
 
-		/**/ if (step < SHARP_PWM_ULTRAFAST)
+		if (step < SHARP_PWM_ULTRAFAST)
 		{
 			Osp3.wait();
 			Osp3.fire(period1, period1 + period0);
@@ -911,26 +915,28 @@ void playMZF()
 
 void setup()
 {
-    Osp3.setup(1);
+	Osp3.setup(1);
 
 	SerialPrompt.setup();
 	
-	InputReader.setup();
+	Storage.setup();
 	
+	if (Storage.configure(SerialPrompt.cfg, "/.config/SERIAL.debug")) serial_debug = SerialPrompt.cfg.enabled;
+
+	InputReader.setup();
+
 	Display.setup();
 
-	Storage.setup();
-
-    pinMode(MZT_DI, INPUT_PULLUP);
-    pinMode(MZT_CS, OUTPUT);
-    pinMode(MZT_MI, INPUT_PULLUP);
+	pinMode(MZT_DI, INPUT_PULLUP);
+	pinMode(MZT_CS, OUTPUT);
+	pinMode(MZT_MI, INPUT_PULLUP);
 
 	set_port_bit(MZT_CS, 1); // signal /SENSE à 1 (lecteur non disponible)
 
-    if (!Storage.sd_ready)
+	if (!Storage.sd_ready)
 	{
-        Display.displayCode(DisplayCode::no_sdcard);
-    }
+		Display.displayCode(DisplayCode::no_sdcard);
+	}
 
 	if (Storage.enterDir())
 	{
@@ -975,5 +981,5 @@ void loop()
 		}
 	}
 
-    Display.displayCode(DisplayCode::scroll_entry_name);
+	Display.displayCode(DisplayCode::scroll_entry_name);
 }

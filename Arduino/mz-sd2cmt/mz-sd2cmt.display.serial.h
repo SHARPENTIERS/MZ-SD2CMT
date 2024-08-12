@@ -33,7 +33,7 @@ struct SerialDisplay : DummyDisplay
 
 	static void setup()
 	{
-		Serial.println(F("MZ-SD2CMT"));
+		Serial.println(F("Output device: serial 115200."));
 	}
 
 	static void configure()
