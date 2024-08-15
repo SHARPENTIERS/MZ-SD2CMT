@@ -7,7 +7,6 @@
 
 #include "mz-sd2cmt.gpio.h"
 #include "mz-sd2cmt.osp.h"
-#include "mz-sd2cmt.std.h"
 #include "mz-sd2cmt.serial.h"
 #include "mz-sd2cmt.storage.h"
 #include "mz-sd2cmt.input.h"

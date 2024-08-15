@@ -143,10 +143,10 @@ struct LCD16x2KeyPadV1Input : DummyInput
 			Serial.println(F("Input device: LCD16X2 KeyPad."));
 			Serial.print(F("  +00 Enabled: ")); Serial.println(cfg.enabled);
 			Serial.print(F("  +01 Button Voltage [RIGHT ]: ")); Serial.println(cfg.BV0, HEX);
-			Serial.print(F("  +04 Button Voltage [UP    ]: ")); Serial.println(cfg.BV1, HEX);
-			Serial.print(F("  +07 Button Voltage [DOWN  ]: ")); Serial.println(cfg.BV2, HEX);
-			Serial.print(F("  +0A Button Voltage [LEFT  ]: ")); Serial.println(cfg.BV3, HEX);
-			Serial.print(F("  +0D Button Voltage [SELECT]: ")); Serial.println(cfg.BV4, HEX);
+			Serial.print(F("  +03 Button Voltage [UP    ]: ")); Serial.println(cfg.BV1, HEX);
+			Serial.print(F("  +05 Button Voltage [DOWN  ]: ")); Serial.println(cfg.BV2, HEX);
+			Serial.print(F("  +07 Button Voltage [LEFT  ]: ")); Serial.println(cfg.BV3, HEX);
+			Serial.print(F("  +09 Button Voltage [SELECT]: ")); Serial.println(cfg.BV4, HEX);
 		}
 	}
 };
