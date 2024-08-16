@@ -22,7 +22,9 @@ enum class DisplayCode : int8_t
 	resume_playing,
 	cancel_playing,
 
-	updateProgressBar
+	update_progress_bar,
+
+	calibrate_device
 };
 
 struct DummyDisplay
@@ -47,10 +49,10 @@ template<typename Head, typename... Rest> struct DisplaySelector : Head, Display
 		DisplaySelector<Rest...>::setLed(on);
 	}
 
-	inline void displayCode(DisplayCode code)
+	inline void displayCode(DisplayCode code, const char *device, const char *message)
 	{
-		Head::displayCode(code);
-		DisplaySelector<Rest...>::displayCode(code);
+		Head::displayCode(code, device, message);
+		DisplaySelector<Rest...>::displayCode(code, device, message);
 	}
 
 	inline void setup()
@@ -73,9 +75,9 @@ template<typename Tail> struct DisplaySelector<Tail> : Tail
 		Tail::setLed(on);
 	}
 
-	inline void displayCode(DisplayCode code)
+	inline void displayCode(DisplayCode code, const char *device, const char *message)
 	{
-		return Tail::displayCode(code);
+		return Tail::displayCode(code, device, message);
 	}
 
 	inline void setup()
@@ -101,8 +103,8 @@ struct Display : DisplaySelector<OLED128x32Display, LedDisplay, LCD16x2Display, 
 		DisplaySelector::initSdErrorHalt();
 	}
 
-	inline void displayCode(DisplayCode code)
+	inline void displayCode(DisplayCode code, const char *device = nullptr, const char *message = nullptr)
 	{
-		DisplaySelector::displayCode(code);
+		DisplaySelector::displayCode(code, device, message);
 	}
 } Display;

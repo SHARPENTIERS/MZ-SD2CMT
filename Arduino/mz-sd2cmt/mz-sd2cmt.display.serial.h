@@ -2,7 +2,7 @@
 
 struct SerialDisplay : DummyDisplay
 {
-	static void displayCode(DisplayCode code)
+	static void displayCode(DisplayCode code, const char *device, const char *message)
 	{
 		switch (code)
 		{
@@ -24,6 +24,13 @@ struct SerialDisplay : DummyDisplay
 			{
 				Serial.println(F("Error: fetchEntry - no file/directory!"));
 			}
+			break;
+
+		case DisplayCode::calibrate_device:
+			Serial.print(F("Calibrating "));
+			Serial.print(device);
+			Serial.println(F("..."));
+			Serial.println(message);
 			break;
 
 		default:

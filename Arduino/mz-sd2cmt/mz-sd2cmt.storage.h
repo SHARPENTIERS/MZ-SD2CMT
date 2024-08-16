@@ -69,8 +69,8 @@ struct Storage
 		}
 	}
 
-	template<typename Config>
-	bool configure(Config &cfg, char *filename)
+	template<typename Config, typename Prepare>
+	inline bool configure(Config &cfg, char *filename, Prepare &&prepare)
 	{
 		File file = sd.open(filename, O_RDWR | O_CREAT);
 		bool ko = !file;
@@ -79,6 +79,7 @@ struct Storage
 			ko = file.read(&cfg, sizeof(cfg)) != sizeof(cfg);
 			Serial.print(ko ? F("Invalid or no configuration file: ") : F("Loaded configuration file: "));
 			Serial.println(filename);
+			if (ko) prepare(cfg);
 		}
 		if (ko)
 		{
@@ -95,6 +96,12 @@ struct Storage
 		file.close();
 
 		return !ko and cfg.enabled;
+	}
+
+	template<typename Config>
+	inline bool configure(Config &cfg, char *filename)
+	{
+		return configure(cfg, filename, [](Config&){});
 	}
 
 	bool checkForLEP(char *filename)

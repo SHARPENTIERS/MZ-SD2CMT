@@ -20,7 +20,7 @@ struct LCD16x2KeyPadV1Input : DummyInput
 		int BV4 = 0x0280;
 	} cfg;
 
-	static constexpr int delta = 5;
+	static constexpr int delta = 10;
 	static constexpr unsigned long rate_time = 10 * 1000; /* 10 ms */
 
 	static constexpr InputCode IC0 = InputCode::right;
@@ -34,13 +34,18 @@ struct LCD16x2KeyPadV1Input : DummyInput
 	unsigned char                  repeated_code = 0;
 	unsigned int                   repeat_count = 0;
 
-	constexpr inline int lower(int value) const
+	static constexpr inline int lower(int value)
 	{
 		return value - delta;
 	}
-	constexpr inline int upper(int value) const
+	static constexpr inline int upper(int value)
 	{
 		return value + delta;
+	}
+
+	static constexpr inline bool in_range(int new_value, int old_value)
+	{
+		return (new_value > lower(old_value)) and (new_value < upper(old_value));
 	}
 
 	bool readCode(InputCode &code)
@@ -136,9 +141,64 @@ struct LCD16x2KeyPadV1Input : DummyInput
 		return result;
 	}
 
+	static void bubble_sort_arr5(int arr[])
+	{
+		for (char i = 0; i < 4; ++i)
+			for (char j = 0; j < 4 - i; ++j)
+				if (arr[j] > arr[j + 1])
+				{
+					// Échange des éléments
+					int v = arr[j];
+					arr[j] = arr[j + 1];
+					arr[j + 1] = v;
+				}
+	}
+
 	inline void setup()
 	{
-		if (Storage.configure(cfg, "/.config/LCD_KEYPAD_SHIELD.input"))
+		auto calibrate = [](Config &cfg)
+			{
+				constexpr int vmax = 1023;
+				Display.displayCode(
+					DisplayCode::calibrate_device,
+					"LCD_KEYPAD_SHIELD",
+					"Press keys distinctly 1 BY 1.");
+				int varr[5] = { vmax, vmax, vmax, vmax, vmax };
+				for (char k = 0; k < 5; ++k)
+				{
+				retry:
+					int v1, v2;
+					delay(1);
+					while ((v1 = analogRead(0)) > lower(vmax)) delay(1);
+					delay(1);
+					while ((v2 = analogRead(0)) <= lower(vmax))
+					{
+						if (in_range(v1, v2))
+						{
+							for (char j = 0; j < k; ++j) if (in_range(v2, varr[j])) goto fail;
+							v1 = (v1 + v2) / 2;
+						}
+						else
+						{
+						fail:
+							while (analogRead(0) <= lower(vmax)) delay(1);
+							goto retry;							
+						}
+						delay(1);
+					}
+					varr[k] = v1;
+					if (serial_debug) Serial.println(varr[k], HEX);
+				}
+
+				bubble_sort_arr5(varr);
+				cfg.BV0 = varr[0];
+				cfg.BV1 = varr[1];
+				cfg.BV2 = varr[2];
+				cfg.BV3 = varr[3];
+				cfg.BV4 = varr[4];
+			};
+
+		if (Storage.configure(cfg, "/.config/LCD_KEYPAD_SHIELD.input", calibrate))
 		{
 			Serial.println(F("Input device: LCD16X2 KeyPad."));
 			Serial.print(F("  +00 Enabled: ")); Serial.println(cfg.enabled);

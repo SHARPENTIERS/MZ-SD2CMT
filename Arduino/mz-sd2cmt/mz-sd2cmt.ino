@@ -9,8 +9,8 @@
 #include "mz-sd2cmt.osp.h"
 #include "mz-sd2cmt.serial.h"
 #include "mz-sd2cmt.storage.h"
-#include "mz-sd2cmt.input.h"
 #include "mz-sd2cmt.display.h"
+#include "mz-sd2cmt.input.h"
 
 #define LO				0
 #define HI				1
@@ -244,7 +244,7 @@ void playLEP()
 					if (old_progress != new_progress)
 					{
 						progress_size = new_progress;
-						Display.displayCode(DisplayCode::updateProgressBar);
+						Display.displayCode(DisplayCode::update_progress_bar);
 						old_progress = new_progress;
 					}
 				}
@@ -452,7 +452,7 @@ void playWAV()
 					if (old_progress != new_progress)
 					{
 						progress_size = new_progress;
-						Display.displayCode(DisplayCode::updateProgressBar);
+						Display.displayCode(DisplayCode::update_progress_bar);
 						old_progress = new_progress;
 					}
 				}
@@ -884,7 +884,7 @@ void playMZF()
 			if (old_progress != new_progress)
 			{
 				progress_size = new_progress;
-				Display.displayCode(DisplayCode::updateProgressBar);
+				Display.displayCode(DisplayCode::update_progress_bar);
 				old_progress = new_progress;
 			}
 		}

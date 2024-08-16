@@ -362,7 +362,7 @@ struct OLED128x32Display : DummyDisplay
 		Storage.sd.initErrorPrint(&oled);
 	}
 
-	void displayCode(DisplayCode code)
+	void displayCode(DisplayCode code, const char *device, const char *message)
 	{
 		if (!present) return;
 
@@ -495,7 +495,7 @@ struct OLED128x32Display : DummyDisplay
 			oled.print(F("Play"));
 			break;
 
-		case DisplayCode::updateProgressBar:
+		case DisplayCode::update_progress_bar:
 			if (progress_size < 5 * 16)
 			{
 				auto new_progress = old_progress;
@@ -508,6 +508,16 @@ struct OLED128x32Display : DummyDisplay
 				}
 			}
 			break;
+
+		case DisplayCode::calibrate_device:
+			// oled.clear();
+			// oled.print(F("Calibrating "));
+			// oled.print(device);
+			// oled.print(F("..."));
+			// oled.setCursor(0, 1);
+			// oled.print(message);
+			break;
+
 		default:
 			break;
 		}

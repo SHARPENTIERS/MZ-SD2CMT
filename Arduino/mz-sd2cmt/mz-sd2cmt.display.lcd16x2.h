@@ -191,7 +191,7 @@ struct LCD16x2Display : DummyDisplay
 		}
 	}
 
-	void displayCode(DisplayCode code)
+	void displayCode(DisplayCode code, const char *device, const char *message)
 	{
 		if (cfg.enabled)
 		{
@@ -298,7 +298,7 @@ struct LCD16x2Display : DummyDisplay
 				lcd.print(F("Play"));
 				break;
 
-			case DisplayCode::updateProgressBar:
+			case DisplayCode::update_progress_bar:
 				if (progress_size < 5 * 16)
 				{
 					unsigned long new_progress = progress_size * 4 / 16;
@@ -309,6 +309,13 @@ struct LCD16x2Display : DummyDisplay
 						old_progress = new_progress;
 					}
 				}
+				break;
+
+			case DisplayCode::calibrate_device:
+				// lcd.clear();
+				// lcd.print(device);
+				// lcd.setCursor(0, 1);
+				// lcd.print(message);
 				break;
 
 			default:
