@@ -30,7 +30,7 @@ enum class InputCode : int8_t
 	sharp
 };
 
-struct DummyInput
+struct DummyInput : Device
 {
 	inline bool readCode(InputCode &code) { return false; }
 	inline void setup() {}

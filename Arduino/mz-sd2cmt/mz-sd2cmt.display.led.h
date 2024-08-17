@@ -19,7 +19,7 @@ struct LedDisplay : DummyDisplay
 		Serial.println(F("Output device: LED activity."));
 	}
 
-	static inline void displayCode(DisplayCode code, const char *device, const char *message)
+	static inline void displayCode(DisplayCode code, Device *)
 	{
 	}
 };

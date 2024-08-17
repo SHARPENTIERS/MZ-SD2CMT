@@ -6,6 +6,7 @@
 // Sketch > Include library > Manage libraries > search: irremote 4.4.0
 
 #include "mz-sd2cmt.gpio.h"
+#include "mz-sd2cmt.device.h"
 #include "mz-sd2cmt.osp.h"
 #include "mz-sd2cmt.serial.h"
 #include "mz-sd2cmt.storage.h"
@@ -922,9 +923,9 @@ void setup()
 	
 	if (Storage.configure(SerialPrompt.cfg, "/.config/SERIAL.debug")) serial_debug = SerialPrompt.cfg.enabled;
 
-	InputReader.setup();
-
 	Display.setup();
+
+	InputReader.setup();
 
 	pinMode(MZT_DI, INPUT_PULLUP);
 	pinMode(MZT_CS, OUTPUT);

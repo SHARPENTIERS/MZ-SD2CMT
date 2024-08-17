@@ -362,7 +362,7 @@ struct OLED128x32Display : DummyDisplay
 		Storage.sd.initErrorPrint(&oled);
 	}
 
-	void displayCode(DisplayCode code, const char *device, const char *message)
+	void displayCode(DisplayCode code, Device *device)
 	{
 		if (!present) return;
 
@@ -510,12 +510,17 @@ struct OLED128x32Display : DummyDisplay
 			break;
 
 		case DisplayCode::calibrate_device:
+			if (device)
+			{
 			// oled.clear();
-			// oled.print(F("Calibrating "));
-			// oled.print(device);
-			// oled.print(F("..."));
+			// oled.set2X();
+			// oled.print(device->name);
+			// oled.set1X();
 			// oled.setCursor(0, 1);
-			// oled.print(message);
+			// oled.print(F("Calibrating..."));
+			// oled.setCursor(0, 2);
+			// oled.print(device->calibrate_device_message);
+			}
 			break;
 
 		default:

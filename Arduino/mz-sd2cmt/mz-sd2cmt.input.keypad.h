@@ -156,13 +156,12 @@ struct LCD16x2KeyPadV1Input : DummyInput
 
 	inline void setup()
 	{
-		auto calibrate = [](Config &cfg)
+		auto calibrate = [this](Config &cfg)
 			{
 				constexpr int vmax = 1023;
-				Display.displayCode(
-					DisplayCode::calibrate_device,
-					"LCD_KEYPAD_SHIELD",
-					"Press keys distinctly 1 BY 1.");
+				this->name = "LCD_KEYPAD";
+				this->message = "Press keys 0/5.";
+				Display.displayCode(DisplayCode::calibrate_device, this);
 				int varr[5] = { vmax, vmax, vmax, vmax, vmax };
 				for (char k = 0; k < 5; ++k)
 				{
@@ -187,6 +186,8 @@ struct LCD16x2KeyPadV1Input : DummyInput
 						delay(1);
 					}
 					varr[k] = v1;
+					++message[11];
+					Display.displayCode(DisplayCode::calibrate_device, this);
 					if (serial_debug) Serial.println(varr[k], HEX);
 				}
 

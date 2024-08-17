@@ -2,7 +2,7 @@
 
 struct SerialDisplay : DummyDisplay
 {
-	static void displayCode(DisplayCode code, const char *device, const char *message)
+	static void displayCode(DisplayCode code, Device *device)
 	{
 		switch (code)
 		{
@@ -27,10 +27,13 @@ struct SerialDisplay : DummyDisplay
 			break;
 
 		case DisplayCode::calibrate_device:
-			Serial.print(F("Calibrating "));
-			Serial.print(device);
-			Serial.println(F("..."));
-			Serial.println(message);
+			if (device)
+			{
+				Serial.print(F("Calibrating "));
+			 	Serial.print(device->name);
+				Serial.println(F("..."));
+				Serial.println(device->message);
+			}
 			break;
 
 		default:

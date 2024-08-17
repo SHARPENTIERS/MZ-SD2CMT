@@ -191,7 +191,7 @@ struct LCD16x2Display : DummyDisplay
 		}
 	}
 
-	void displayCode(DisplayCode code, const char *device, const char *message)
+	void displayCode(DisplayCode code, Device *device)
 	{
 		if (cfg.enabled)
 		{
@@ -312,10 +312,13 @@ struct LCD16x2Display : DummyDisplay
 				break;
 
 			case DisplayCode::calibrate_device:
-				// lcd.clear();
-				// lcd.print(device);
-				// lcd.setCursor(0, 1);
-				// lcd.print(message);
+				if (device)
+				{
+					lcd.clear();
+					lcd.print(device->name);
+					lcd.setCursor(0, 1);
+					lcd.print(device->message);
+				}
 				break;
 
 			default:
