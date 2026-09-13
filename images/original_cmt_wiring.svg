@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="650" viewBox="0 0 1400 650">
+  <defs>
+    <style>
+      .title{font:700 30px Arial,sans-serif;fill:#222}
+      .head{font:700 25px Arial,sans-serif;fill:#222}
+      .pin{font:20px monospace;fill:#222}
+      .note{font:18px Arial,sans-serif;fill:#444}
+      .boxA{fill:#eaf4ff;stroke:#2b5f8f;stroke-width:4;rx:18}
+      .boxB{fill:#f4f4f4;stroke:#444;stroke-width:4;rx:18}
+      .sig{stroke:#2d2d2d;stroke-width:5;fill:none}
+      .sig2{stroke:#666;stroke-width:4;fill:none;stroke-dasharray:10 8}
+    </style>
+    <marker id="arr" markerWidth="11" markerHeight="9" refX="10" refY="4.5" orient="auto">
+      <path d="M0,0 L11,4.5 L0,9 z" fill="#2d2d2d"/>
+    </marker>
+    <marker id="arr2" markerWidth="11" markerHeight="9" refX="1" refY="4.5" orient="auto">
+      <path d="M11,0 L0,4.5 L11,9 z" fill="#2d2d2d"/>
+    </marker>
+  </defs>
+
+  <text x="700" y="48" text-anchor="middle" class="title">MZ-SD2CMT compatible Sharp MZ CMT interface</text>
+  <text x="700" y="78" text-anchor="middle" class="note">Simplified local redraw based on the original MZ-SD2CMT documentation and pin assignment</text>
+
+  <rect x="70" y="125" width="420" height="430" class="boxA"/>
+  <text x="280" y="175" text-anchor="middle" class="head">Arduino Mega 2560</text>
+  <text x="110" y="250" class="pin">D15 / RX3</text>
+  <text x="110" y="330" class="pin">D16 / TX2</text>
+  <text x="110" y="410" class="pin">D2 / OC3B</text>
+  <text x="110" y="490" class="pin">D18 / TX1</text>
+  <text x="280" y="530" text-anchor="middle" class="note">MZ-SD2CMT / MZ-SD2CMT2 core CMT pins</text>
+
+  <rect x="910" y="125" width="420" height="430" class="boxB"/>
+  <text x="1120" y="175" text-anchor="middle" class="head">Sharp MZ CMT interface</text>
+  <text x="990" y="250" class="pin">WRITE / SDI</text>
+  <text x="990" y="330" class="pin">MOTOR / SSI</text>
+  <text x="990" y="410" class="pin">READ / SDO</text>
+  <text x="990" y="490" class="pin">SENSE / SSO</text>
+  <text x="1120" y="530" text-anchor="middle" class="note">cassette / 8255 controlled signals</text>
+
+  <path d="M490 242 H910" class="sig" marker-start="url(#arr2)"/>
+  <text x="700" y="228" text-anchor="middle" class="note">data from MZ to interface</text>
+
+  <path d="M490 322 H910" class="sig" marker-start="url(#arr2)"/>
+  <text x="700" y="308" text-anchor="middle" class="note">motor / control from MZ</text>
+
+  <path d="M490 402 H910" class="sig" marker-end="url(#arr)"/>
+  <text x="700" y="388" text-anchor="middle" class="note">data to MZ</text>
+
+  <path d="M490 482 H910" class="sig" marker-end="url(#arr)"/>
+  <text x="700" y="468" text-anchor="middle" class="note">sense / control to MZ</text>
+
+  <path d="M560 575 H840" class="sig2"/>
+  <text x="700" y="610" text-anchor="middle" class="note">The same logical lines are also used by the original Ultra-Fast protocol.</text>
+</svg>
