@@ -3,6 +3,6 @@
 generated/
 .gitignore
 platformio.exe
-test/
-Specification/
-TEST/
+.test/
+.specification/
+.TEST/

@@ -144,8 +144,7 @@ bool mz_loader_profile_detect_tc(const uint8_t *loader_header,
     mz_copier_profile_t matched;
     if (!mz_loader_profile_recognize_tc_header(loader_header) ||
         (loader_data == NULL)) return false;
-    matched = (loader_data[0x4BU] == 0x16U) ? MZ_COPIER_TC_1_4 :
-              (loader_data[0x4BU] == 0x1BU) ? MZ_COPIER_TC_1_3 :
+    matched = (loader_data[0x4BU] == 0x1BU) ? MZ_COPIER_TC_1_3 :
               (loader_data[0x4BU] == 0x29U) ? MZ_COPIER_TC_1_2 : MZ_COPIER_NONE;
     if ((matched == MZ_COPIER_NONE) || !supported_type(loader_data[0x4CU]))
         return false;

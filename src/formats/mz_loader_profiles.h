@@ -14,8 +14,7 @@ typedef enum
     MZ_COPIER_IC_1_3,
     MZ_COPIER_IC_1_2,
     MZ_COPIER_TC_1_3,
-    MZ_COPIER_TC_1_2,
-    MZ_COPIER_TC_1_4
+    MZ_COPIER_TC_1_2
 } mz_copier_profile_t;
 
 void mz_loader_profile_copy_ic_loader(uint8_t *destination);

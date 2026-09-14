@@ -1,0 +1,183 @@
+þZX MANUAL.FETâ+¿>  mZx software, Otto Zemek, jr. & spol. P.O.BOX 83, 370 04 ãesk× BudÅjovice
+
+                   OvlÁdÁnÉ programu ZX-Spectrum emulÁtor
+                            Autor programu: RDOS
+                     ManuÁl napsal 18. 7.1992 Otto Zemek
+                            (C) 1992 mZx software
+
+  Program  je urÃen  pro emulaci  poÃÉtaÃe ZX-Spectrum  a kompatibilnÉch na
+  SHARP  MZ-800. Programy,  pÊvodnÅ urÃen×  pro uÚivatele  ZX-Spectra mohou
+  nynÉ vyuÚÉvat i  majitel× SHARP MZ-800. Pokud pouÚÉvÁte  FD, dostali jste
+  na  disketÅ vÉce  souborÊ. VloÚte  do MGF  kazetu a  napiÓte: SUBMIT ZX a
+  stisknÅte REC.PLAY. VÓechy soubory se nahrajÉ na kazetu.
+
+  Po nahrÁnÉ jak×hokoli bloku z kazety  do poÃÉtaÃe dojde ke kompilaci cel×
+  pamÅti,  kdy jsou  kritick× pÒÉkazy  nahrazeny instrukci  RST 30, number.
+  Pokud  potom bÅÚÉcÉ  program narazÉ  na tuto  instrukci, skoÃÉ  na adresu
+  # 0030,  na kter×  je uloÚen  program pro  emulaci vÓech  pÒÉkazÊ. Zde se
+  vyhodnotÉ ÃÉslo pÒÉkazu obsaÚen× za instrukcÉ RST a podle nÅho se provede
+  pÒÉsluÓnÙ podprogram, , nahrazujÉcÉ  instrukci ZX-Spectra. TÉmto syst×mem
+  by ( teoreticky ) mÅly pracovat VóECHNY programy ze ZX-Spectra.
+
+  Program obsahuje celou ROM ZX-Spectra, proto zde pracujÉ nejen programy v
+  assembleru,  ale  i  v  BASICu.  PamÅÔ  je  rozloÚenÁ  takto: 0000 - 3FFF
+  ROM + emulÁtor, 4000 - FFFF RAM ( 9E00 - 9FFF video emulator ).
+
+  Navenek  se  emulÁtor  chovÁ   jako  klasick×  ZX-Spectrum.NavÉc  je  zde
+  zabudovÁna emulace  sound chipu AY 3-8912  obsaÚen×ho v ZX-Spectru 128kB.
+  Po spuÓtÅnÉ se na rozdÉl  od ZX-Spectra program ohlÁsÉ syst×movÙm nÁpisem
+  (C)  1992 RDOS  Emulator v10.5.   KlÁvesnice je  ovlÁdÁna stejnÅ  jako na
+  ZX-Spectru ( rozloÚenÉ v pÒÉloze ).
+
+  Aby bylo ovlÁdÁnÉ stejnÅ rychl×  jako na ZX-Spectru, jsou testovÁny pouze
+  nezbytn× klÁvesy. Test nezahrnuje SHARP  klÁvesy CTRL, Óipky, INST, DEL a
+  dalÓÉ. TestovÁnÉm tohoto zbytku by se program nesnesitelnÅ zpomalil. Jako
+  CAPS SHIFT je pouÚit SHIFT, jako  SYMBOL SHIFT pracuje ALPHA. Proto napÒ.
+  pro break programu v Basicu je nutno stisknout SHIFT + SPACE.
+
+  Po syst×mov×m hlÁÓenÉ je program  pÒipraven k prÁci. StaÃÉ odeslat pÒÉkaz
+  LOAD "  " ( SHIFT  J ALPHA PP  ) a emulÁtor  je schopen nahrÁt  a spustit
+  jakÙkoli  program ze  ZX-Spectra. Jakmile  dojde ke  skoku do  strojov×ho
+  kÏdu, je zapnut test funkÃnÉch klÁves F1 - F5, kter× majÉ tyto funkce:
+
+  F1 - SHIFT     ...pÒi stisku t×to klÁvesy a napÒÉklad F2  platÉ pÒÉkaz F7
+  F2 - ZapnutÉ ÃernobÉl×ho mÏdu provozu. Tento reÚim je rychlejÓÉ neÚ color
+  F3 - ZapnutÉ pÒepisu obrazu, pokud byl vypnut.
+  F4 - PovolenÉ pÒeruÓenÉ
+  F5 - PÒepÉÓe obraz plus povolÉ pÒeruÓenÉ
+  F7 - ( neboli F1 + F2 ) - zapnutÉ barevn×ho reÚimu
+  F8 - VypnutÉ pÒepisu obrazu
+  F9 - Nahraje aktuÁlnÉ obrazovku na kazetu ( SnapShot ).
+
+  ZX a MZ majÉ rozdÉln× obrazov× pamÅti.  Aby byla vidÅt obrazovka ze ZX na
+  MZ, je  nutn× pÒi pÒeruÓenÉ  pÒepsat VRAM ZX  na MZ. Toto  mÁ za nÁsledek
+  jistou  rozfÁzovanost  obrazu.  Kdyby  se  vÓak  pÒepis pouÚil pÒi kaÚd×m
+  pÒeruÓenÉ, byla by napÒ. hra velice  pomalÁ. Proto se VRAM pÒepisuje vÚdy
+  jednou za X pÒeruÓenÉ. StandardnÉ hodnota  je 8. Lze ji nastavit pÒÉkazem
+  POKE 14620, X  pro BASIC a 14762 pro strojÁk.  NÅkdy, napÒ. pÒi hudbÅ, je
+  pÒepis neÚÁdoucÉ. Stiskem F1 + F3 jej lze vypnout ÕplnÅ.
+
+  SnapShot je  schopnost programu uchovat  na kazetÅ libovolnou  obrazovku.
+  Pokud pÒi  bÅhu jak×hokoli strojÁkov×ho  programu stisknete klÁvesy  F1 +
+  F4, program ÃekÁ na stisk klÁvesy INST, po nÅmÚ zaÃne na kazetu nahrÁvat.
+  Po nahrÁnÉ programu pÒedÁ ÒÉzenÉ zpÅt.
+
+  EmulÁtor  je  schopen  bÅÚet  ve  dvou  grafickÙch  mÏdech.  ãernobÉl×m a
+  barevn×m. BarevnÙ vyÚaduje EXVRAM. Oba mÏdy lze pÒepÉnat i v BASICu, a to
+  pÒÉkazem CAT, kterÙ je nevyuÚitÙ. Tento  pÒÉkaz se vyvolÁ SHIFT + ALPHA a
+  ALPHA + 9, CR.
+
+  Program emuluje instrukce pro test klÁvesnice  ( pÒÉkazy IN A, (C); IN A,
+  (FE); IN B, (C); IN C, (C)), joysticku, pÒeruÓnÉ IM2,
+  zvuk 48 a barvu okraje, zvuk 128.
+
+  Joystick: Sinclair joysticky jsou zapojeny na klÁvesy 1 - 5 ( I ) a 6 - 0
+  ( II ). Kempston joystick je na ZX ovlÁdÁn pÒes port #1F. Zde je testovÁn
+  joystick v portu 1; emulovÁn je pÒÉkaz IN A, (#1F)
+
+  Emuluje  se  i  proces  pÒeruÓenÉ.  To  je  cyklus,  kterÙ  probÅhne vÚdy
+  nÅkolikrÁt  za sekundu,  kdy se  pÒeruÓÉ normÁlnÉ  bÅh programu, pÒedÁ se
+  ÒÉzenÉ  programu  pÒeruÓovacÉmu,  po  jehoÚ  provedenÉ  se  bÅh  vrÁtÉ do
+  normÁlnÉho programu. Na ZX se nastavuje pÒeruÓenÉ trochu jinak neÚ na MZ,
+  proto se zde emulujÉ i pÒÉkazy IM2, LD I, A.
+
+  ZvukovÙ port  ZX 48k (  #FE )  je  zde simulovÁn pomocÉ  portu #D3. Barva
+  okraje se z  portu #FE pÒedÁvÁ na #06CF. Emuluje  se pÒÉkaz OUT (#FE), A.
+  ZvukovÙ obvod u MZ-800 nenÉ tak  dokonalÙ, jako u ZX-Spectra 128kB. ChybÉ
+  zde 28  druhÊ ÓumÊ a spodnÉ  dvÅ oktÁvy. PÒi spuÓtÅnÉ  se emulÁtor zeptÁ,
+  jakÙm  ze dvou  zpÊsobÊ se  bude funkce  obvodu AY  3-8912. PrvnÉ  zpÊsob
+  funguje  tak,  Úe  ÓumovÙ  generÁtor  emuluje  niÚÓÉ  tÏny  a Óumy jsou k
+  dispozici pouze tÒi. DruhÙ zpÊsob hraje niÚÓÉ  tÏny o dvÅ oktÁvy vÙÓ a je
+  zde simulovÁno  vÓech 32 druhÊ ÓumÊ.  EmulujÉ se pÒÉkazy OUT  (C), A; OUT
+  (C), D; OUT (C), E; OUT D.
+
+  PÒi kompilaci program prochÁzÉ celou  pamÅÔ a hledÁ specifick× instrukce.
+  AvÓak v pamÅti mohou bÙt tyto instrukce  tÒeba i v datech. Pokud se stane
+  ( byÔ velice  vÙjimeÃnÅ ), Úe program  zkompiluje data a tato  data budou
+  dost  dÊleÚitÁ, mÊÚe  dojÉt k  poniÃenÉ zpracovÁvan×ho  programu. ( NapÒ.
+  EMLYN HUGHES  INTERNATIONAL SOCCER - hrÁÃi  bÅhajÉ v hlediÓti ).  V tomto
+  pÒÉpadÅ lze postupovat dvÅma zpÊsoby:
+
+  Vypnout kompilaci  nÅkterÙch pÒÉkazÊ, nebo,  pokud ani toto  nepomÊÚe, je
+  nejlepÓÉ nahrÁt program ( pro ZX  ! ) do nÅjak×ho vhodn×ho editoru, napÒ.
+  do S-MASTERu. Tam  najdete vÓechny tyto instrukce a  podÉvÁte se, kter× z
+  nich se nesmÉ kompilovat. Potom spustÉte opÅt emulÁtor, vypnete kompilaci
+  pÒÉkazÊ a ruÃnÅ zkompilujete ty sprÁvn×.
+
+  poÒ. ÃÉslo      adresa kompilace      pÒÉkaz      hexadekadick× vyjÁdÒenÉ
+  -------------------------------------------------------------------------
+      00               15134            IN A,(C)            ED 78
+      01               15140            IN A,(FE)           DB FE
+      02               15146            IM 2                ED 5E
+      03               15152            LD I,A              ED 47
+      04               15158            IN A,(1F)           DB 1F
+      05               15164            OUT (FE),A          D3 FE
+      06               15170            IN B,(C)            ED 40
+      07               15176            IN C,(C)            ED 48
+      08               15182            OUT (C),A           ED 79
+      09               15188            OUT (C),D           ED 51
+      0A               15194            OUT (C),E           ED 59
+      0B               15200            OUT D               ED AB
+
+  Pokud  chcete vypnout  urÃitÙ pÒÉkaz,  zadejte na  adresu jeho  kompilace
+  ÃÉslo  134.  Pokud  chcete  kompilaci  opÅt  zapnout,  zadejte ÃÉslo 106.
+  Kompilace  vÓech instrukcÉ  se dÁ  zablokovat pÒÉkazem  POKE 15210,201  a
+  povolit POKE  15210, 245. Na  adresÁch 15211 -  15212 a 15214-15215  jsou
+  ÕvodnÉ adresa a d×lka kompilovan×ho bloku ( standardnÅ 4000, C000 ).
+
+  RozmÉstÅnÉ klÁves: ( extended znamenÁ SHIFT + ALPHA
+  -----------------
+
+  -------------------------------------------------------------------------
+  klÁvesa ! normÁl ! alpha ! extended ! ext.+ alpha !  shift  ! extend+shif
+  -------------------------------------------------------------------------
+ !        !        !       !          !             !         !            !
+ !   1    !   1    !   !   ! BLUE     !  DEF FN     ! EDIT    ! BLUE       !
+ !   2    !   2    !   @   ! RED      !  FN         ! CPS LOCK! RED        !
+ !   3    !   3    !   #   ! MAGENTA  !  LINE       ! TR VIDEO! MAGENTA    !
+ !   4    !   4    !   $   ! GREEN    !  OPEN #     ! IN VIDEO! GREEN      !
+ !   5    !   5    !   %   ! CYAN     !  CLOSE #    ! LEFT    ! CYAN       !
+ !   6    !   6    !   &   ! YELLOW   !  MOVE       ! DOWN    ! YELLOW     !
+ !   7    !   7    !   '   ! WHITE    !  ERASE      ! UP      ! WHITE      !
+ !   8    !   8    !   (   ! BRIGHT ON!  POINT      ! RIGHT   ! FLASH ON   !
+ !   9    !   9    !   )   ! BRIGH OFF!  CAT reÚim  ! GRAPHICS! FLASH OFF  !
+ !   0    !   0    !   -   ! BLACK    !  FORMAT     ! DELETE  ! BLACK      !
+ !   A    !  NEW   ! STOP  ! READ     !     ~       !         !            !
+ !   B    !  BORDER!  *    ! BIN      !  BRIGHT     !         !            !
+ !   C    !  CONTIN!  ?    ! LPRINT   !  PAPER      !         !            !
+ !   D    !  DIM   ! STEP  ! DATA     !     \       !         !            !
+ !   E    !  REM   !  >=   ! TAN      !  ATN        !         !            !
+ !   F    !  FOR   !  TO   ! SGN      !     {       !         !            !
+ !   G    !  GOTO  ! THEN  ! ABS      !     }       !         !            !
+ !   H    !  GOSUB !  UP   ! SQR      !  CIRCLE     !         !            !
+ !   I    !  INPUT !  AT   ! CODE     !  IN         !         !            !
+ !   J    !  LOAD  !  -    ! VAL      !  VAL $      !         !            !
+ !   K    !  LIST  !  +    ! LEN      !  SCREEN$    !         !            !
+ !   L    !  LET   !  =    ! USR      !  ATTR       !         !            !
+ !   M    !  PAUSE !  .    ! PI       !  INVERSE    !         !            !
+ !   N    !  NEXT  !  ,    ! INKEY$   !  OVER       !         !            !
+ !   O    !  POKE  !  ;    ! PEEK     !  OUT        !         !            !
+ !   P    !  PRINT !  "    ! TAB      !  (c)        !         !            !
+ !   Q    !  PLOT  !  <=   ! SIN      !  ASN        !         !            !
+ !   R    !  RUN   !  <    ! INT      !             !         !            !
+ !        !        !       !          !             a tak dÁle, atd....... !
+  ------------------------------------------------------------------------ !
+
+  Toto je zÒejmÅ jedinÁ moÚnÁ zÁludnost program ZX-Spectrum RDOS emulÁtor -
+  totiÚ klÁvesnice. Spectrist×, chudÁci, se s  tÉm musÉ potÙkat kaÚdÙ den a
+  prÙ se to dÁ pÒeÚÉt. KterÙ pÒÉkaz  je schovanÙ pod kterÙm z mnoha SHIFTÊ,
+  to vÁm poradÉ vÙÓe uvedenÁ tabulka.
+
+  MoÚnosti  emulÁtoru  vÁm  pÒedvede  i  soubor  programÊ,  kter×  dodÁvÁme
+  souÃasnÅ s emulÁtorem  a jehoÚ vlastnÉky jste se stali  i vy. StaÃÉ, kdyÚ
+  stisknete SHIFT J ALPHA PP, coÚ podle tabulky znamenÁ LOAD " ".
+
+  DoufÁme, Úe se program stane  vaÓÉm pomocnÉkem a prostÒednÉkem ke stovkÁm
+  pomÅrnÅ  kvalitnÉch  programÊ,  dostupnÙch  na  poÃÉtaÃi  ZX-Spectrum.  V
+  programu  je  zakÏdovÁno  ÃÉslo  kupujÉcÉho,  proto  buÄte  tak laskavi a
+  nekopÉrujte  jej  nikomu;  mÁ-li  o  tento,  nebo  o  jinÙ program z naÓÉ
+  produkce zÁjem, aÔ se laskavÅ obrÁtÉ na adresu mZx software, P.O. BOX 83,
+  370  04  ãesk×  BudÅjovice.  NabÉzÉme  i  pÅknÅ  pÒedÅlan×  hry  a  mnoho
+  kvalitnÉch aplikacÉ pro CP/m.
+                                                             Konec manuÁlu.
+678\^- 09,.?/ÿÿÿÿÿÿÿñòó

@@ -254,10 +254,10 @@ static loader_mode_t metadata_loader_mode_from_tone(uint16_t short_x8,
     uint16_t d3;
     uint16_t d4;
 
-    d1 = metadata_difference_u16(normalized, 250U);
-    d2 = metadata_difference_u16(normalized, 136U);
-    d3 = metadata_difference_u16(normalized, 113U);
-    d4 = metadata_difference_u16(normalized, 96U);
+    d1 = metadata_difference_u16(normalized, 248U);
+    d2 = metadata_difference_u16(normalized, 126U);
+    d3 = metadata_difference_u16(normalized, 106U);
+    d4 = metadata_difference_u16(normalized, 97U);
     if ((leader_pulses >= 8000U) && (leader_pulses <= 13000U) &&
         (d4 < d3) && (d4 < d2) && (d4 < d1))
     {
@@ -279,7 +279,6 @@ static bool metadata_loader_from_copier(mz_copier_profile_t profile,
         case MZ_COPIER_IC_1_2: *loader_mode = LOADER_MODE_IC_1_2; return true;
         case MZ_COPIER_TC_1_3: *loader_mode = LOADER_MODE_TC_1_3; return true;
         case MZ_COPIER_TC_1_2: *loader_mode = LOADER_MODE_TC_1_2; return true;
-        case MZ_COPIER_TC_1_4: *loader_mode = LOADER_MODE_TC_1_4; return true;
         case MZ_COPIER_NONE:
         default: return false;
     }

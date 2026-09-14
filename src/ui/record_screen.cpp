@@ -31,7 +31,6 @@ static const char text_detect_ic_1_4[] PROGMEM = "IC 1:4";
 static const char text_detect_ic_1_3[] PROGMEM = "IC 1:3";
 static const char text_detect_ic_1_2[] PROGMEM = "IC 1:2";
 static const char text_detect_tc_1_3[] PROGMEM = "TC 1:3";
-static const char text_detect_tc_1_4[] PROGMEM = "TC 1:4";
 static const char text_detect_tc_1_2[] PROGMEM = "TC 1:2";
 static const char text_detect_sin_1_1[] PROGMEM = "SIN 1:1";
 static const char text_detect_sin_1_2[] PROGMEM = "SIN 1:2";
@@ -50,7 +49,7 @@ static const char * const detected_loader_labels_P[LOADER_MODE_COUNT] PROGMEM =
     NULL, text_detect_mz700_1_3, text_detect_ic_1_4, text_detect_ic_1_3,
     text_detect_ic_1_2, text_detect_tc_1_3, text_detect_tc_1_2,
     text_detect_normal_1_2, text_detect_normal_1_3,
-    text_detect_mz700_1_1, text_detect_normal_1_4, text_detect_tc_1_4
+    text_detect_mz700_1_1, text_detect_normal_1_4
 };
 
 static const char * const detected_aux_labels_P[9] PROGMEM =

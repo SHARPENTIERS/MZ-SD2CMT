@@ -31,61 +31,48 @@
 #define MZF_HEADER_BYTES 128U
 #define MZF_HEADER_DATA_LENGTH_OFFSET 0x12U
 
-/*
-    MZ-800 monitor waveform:
-
-      short / logical 0: HIGH 250 us, LOW 250 us  (500 us total)
-      long  / logical 1: HIGH 500 us, LOW 500 us (1000 us total)
-
-    The MZ-800 tape framing sends a 6,400-short-pulse leader before both the
-    header and data sections.
-*/
+/* Timer3 has no prescaler, so one tick is 1/16 us.  The native MZ-800 ROM
+   timing below is converted from its 3.546875 MHz source clock. */
 #define MZF_TICKS_PER_US ((uint16_t)(F_CPU / 1000000UL))
 #define MZF_US_TO_TICKS(us) ((uint16_t)((uint32_t)(us) * MZF_TICKS_PER_US))
-#define MZF_SHORT_HIGH_TICKS MZF_US_TO_TICKS(250U)
-#define MZF_SHORT_LOW_TICKS  MZF_US_TO_TICKS(250U)
-#define MZF_LONG_HIGH_TICKS  MZF_US_TO_TICKS(500U)
-#define MZF_LONG_LOW_TICKS   MZF_US_TO_TICKS(500U)
-/* NORMAL without a loader keeps the ROM framing and scales both symmetric
-   pulse halves. Division in timer ticks preserves the exact 1:2 / 1:3
-   ratios without adding software-edge correction loops. */
-/* Fractional-tick NORMAL profiles derived from 44.1 kHz pulse periods. */
-#define MZF_NORMAL_1_2_SHORT_TICKS ((uint16_t)2178U) /* 136.125 us */
-#define MZF_NORMAL_1_2_LONG_TICKS  ((uint16_t)4425U) /* 276.563 us */
-#define MZF_NORMAL_1_3_SHORT_TICKS ((uint16_t)1811U) /* 113.188 us */
-#define MZF_NORMAL_1_3_LONG_TICKS  ((uint16_t)3265U) /* 204.063 us */
-#define MZF_IC_1_4_SHORT_HIGH_TICKS MZF_US_TO_TICKS(112U)
-#define MZF_IC_1_4_SHORT_LOW_TICKS  MZF_US_TO_TICKS(80U)
-#define MZF_IC_1_4_LONG_HIGH_TICKS  MZF_US_TO_TICKS(176U)
-#define MZF_IC_1_4_LONG_LOW_TICKS   MZF_US_TO_TICKS(160U)
-#define MZF_IC_1_3_SHORT_HIGH_TICKS MZF_US_TO_TICKS(112U)
-#define MZF_IC_1_3_SHORT_LOW_TICKS  MZF_US_TO_TICKS(96U)
-#define MZF_IC_1_3_LONG_HIGH_TICKS  MZF_US_TO_TICKS(224U)
-#define MZF_IC_1_3_LONG_LOW_TICKS   MZF_US_TO_TICKS(192U)
+#define MZF_SHORT_HIGH_TICKS ((uint16_t)3807U)
+#define MZF_SHORT_LOW_TICKS  ((uint16_t)4087U)
+#define MZF_LONG_HIGH_TICKS  ((uint16_t)7506U)
+#define MZF_LONG_LOW_TICKS   ((uint16_t)7786U)
+#define MZF_MZ800_LEADER_SHORT_LOW_TICKS ((uint16_t)4141U)
+#define MZF_MZ800_MARK_SHORT_LOW_TICKS   ((uint16_t)4096U)
+#define MZF_MZ800_MARK_LONG_LOW_TICKS    ((uint16_t)7795U)
+#define MZF_MZ800_DATA_SHORT_LONG_LOW_TICKS ((uint16_t)4042U)
+#define MZF_MZ800_DATA_LONG_LONG_LOW_TICKS  ((uint16_t)7741U)
+
+#define MZF_IC_1_4_SHORT_HIGH_TICKS ((uint16_t)1232U)
+#define MZF_IC_1_4_SHORT_LOW_TICKS  ((uint16_t)1877U)
+#define MZF_IC_1_4_LONG_HIGH_TICKS  ((uint16_t)2522U)
+#define MZF_IC_1_4_LONG_LOW_TICKS   ((uint16_t)2874U)
+#define MZF_IC_1_3_SHORT_HIGH_TICKS ((uint16_t)1407U)
+#define MZF_IC_1_3_SHORT_LOW_TICKS  ((uint16_t)1994U)
+#define MZF_IC_1_3_LONG_HIGH_TICKS  ((uint16_t)2815U)
+#define MZF_IC_1_3_LONG_LOW_TICKS   ((uint16_t)3577U)
 /* MZ-700 1Z-009A FAST3 runs DLY3 from RAM and samples input about 97 us
    after the edge. Keep both halves symmetric: short remains below the sample
    point and long is exactly twice the short interval. */
 #define MZF_MZ700_3X_SHORT_TICKS MZF_US_TO_TICKS(80U)
 #define MZF_MZ700_3X_LONG_TICKS  MZF_US_TO_TICKS(160U)
-#define MZF_IC_1_2_SHORT_HIGH_TICKS MZF_US_TO_TICKS(144U)
-#define MZF_IC_1_2_SHORT_LOW_TICKS  MZF_US_TO_TICKS(112U)
-#define MZF_IC_1_2_LONG_HIGH_TICKS  MZF_US_TO_TICKS(256U)
-#define MZF_IC_1_2_LONG_LOW_TICKS   MZF_US_TO_TICKS(224U)
-#define MZF_TC_1_3_SHORT_HIGH_TICKS MZF_US_TO_TICKS(112U)
-#define MZF_TC_1_3_SHORT_LOW_TICKS  MZF_US_TO_TICKS(112U)
-#define MZF_TC_1_3_LONG_HIGH_TICKS  MZF_US_TO_TICKS(204U)
-#define MZF_TC_1_3_LONG_LOW_TICKS   MZF_US_TO_TICKS(204U)
-#define MZF_TC_1_4_SHORT_HIGH_TICKS MZF_IC_1_4_SHORT_HIGH_TICKS
-#define MZF_TC_1_4_SHORT_LOW_TICKS  MZF_IC_1_4_SHORT_LOW_TICKS
-#define MZF_TC_1_4_LONG_HIGH_TICKS  MZF_IC_1_4_LONG_HIGH_TICKS
-#define MZF_TC_1_4_LONG_LOW_TICKS   MZF_IC_1_4_LONG_LOW_TICKS
-#define MZF_TC_1_2_SHORT_HIGH_TICKS MZF_US_TO_TICKS(144U)
-#define MZF_TC_1_2_SHORT_LOW_TICKS  MZF_US_TO_TICKS(144U)
-#define MZF_TC_1_2_LONG_HIGH_TICKS  MZF_US_TO_TICKS(288U)
-#define MZF_TC_1_2_LONG_LOW_TICKS   MZF_US_TO_TICKS(288U)
+#define MZF_IC_1_2_SHORT_HIGH_TICKS ((uint16_t)1818U)
+#define MZF_IC_1_2_SHORT_LOW_TICKS  ((uint16_t)2228U)
+#define MZF_IC_1_2_LONG_HIGH_TICKS  ((uint16_t)3753U)
+#define MZF_IC_1_2_LONG_LOW_TICKS   ((uint16_t)4164U)
+#define MZF_TC_1_3_SHORT_HIGH_TICKS ((uint16_t)1687U)
+#define MZF_TC_1_3_SHORT_LOW_TICKS  ((uint16_t)1673U)
+#define MZF_TC_1_3_LONG_HIGH_TICKS  ((uint16_t)3360U)
+#define MZF_TC_1_3_LONG_LOW_TICKS   ((uint16_t)3360U)
+#define MZF_TC_1_2_SHORT_HIGH_TICKS ((uint16_t)2269U)
+#define MZF_TC_1_2_SHORT_LOW_TICKS  ((uint16_t)2255U)
+#define MZF_TC_1_2_LONG_HIGH_TICKS  ((uint16_t)4524U)
+#define MZF_TC_1_2_LONG_LOW_TICKS   ((uint16_t)4524U)
 
-#define MZF_MZ800_LONG_GAP_SHORT_PULSES 6344U
-#define MZF_MZ800_SHORT_GAP_SHORT_PULSES 6344U
+#define MZF_MZ800_LONG_GAP_SHORT_PULSES 11000U
+#define MZF_MZ800_SHORT_GAP_SHORT_PULSES 5500U
 #define MZF_MZ800_LONG_MARK_LONG_PULSES 40U
 #define MZF_MZ800_LONG_MARK_SHORT_PULSES 40U
 #define MZF_MZ800_SHORT_MARK_LONG_PULSES 20U
@@ -93,6 +80,15 @@
 #define MZF_MZ800_TAPE_MARK_FINAL_LONG_PULSES 2U
 #define MZF_MZ800_TRAILING_LONG_PULSES 2U
 #define MZF_TC_LOADER_TRAILING_SHORT_PULSES 98U
+
+/* UL/UL800/UL700 are live-handshake transports outside the static QDTool
+   export profiles.  Preserve their proven pre-change carrier timing. */
+#define MZF_UL_SHORT_HIGH_TICKS MZF_US_TO_TICKS(250U)
+#define MZF_UL_SHORT_LOW_TICKS  MZF_US_TO_TICKS(250U)
+#define MZF_UL_LONG_HIGH_TICKS  MZF_US_TO_TICKS(500U)
+#define MZF_UL_LONG_LOW_TICKS   MZF_US_TO_TICKS(500U)
+#define MZF_UL_HEADER_LEADER_SHORT_PULSES 2000U
+#define MZF_UL_DATA_LEADER_SHORT_PULSES   1000U
 
 #define MZF_FIFO_BYTES WAV_SAMPLE_STREAM_BUFFER_BYTES
 #define MZF_FIFO_CAPACITY (MZF_FIFO_BYTES - 1U)
@@ -109,9 +105,8 @@
 #define MZF_MZ700_FAST3_START_DELAY_MS 400U
 #define MZF_TC_TURBO_START_DELAY_MS 110U
 #define MZF_IC_TURBO_GAP_SHORT_PULSES 5500U
-#define MZF_TC_1_4_TURBO_GAP_SHORT_PULSES 5500U
-#define MZF_TC_1_3_TURBO_GAP_SHORT_PULSES 15130U
-#define MZF_TC_1_2_TURBO_GAP_SHORT_PULSES 11239U
+#define MZF_TC_1_3_TURBO_GAP_SHORT_PULSES 5500U
+#define MZF_TC_1_2_TURBO_GAP_SHORT_PULSES 5500U
 #define MZF_IC_TURBO_MARK_LONG_PULSES 20U
 #define MZF_IC_TURBO_MARK_SHORT_PULSES 20U
 #define MZF_IC_TURBO_MARK_FINAL_LONG_PULSES 2U
@@ -154,6 +149,13 @@ typedef enum
     MZF_PWM_TERMINAL_FINISHED
 } mzf_pwm_terminal_t;
 
+typedef enum
+{
+    MZF_PULSE_REGION_LEADER = 0,
+    MZF_PULSE_REGION_TAPE_MARK,
+    MZF_PULSE_REGION_DATA
+} mzf_pulse_region_t;
+
 static volatile uint8_t mzf_state = MZF_PLAYBACK_STOPPED;
 #define mzf_error_text cmt_playback_backend_error
 
@@ -181,6 +183,7 @@ static uint16_t mzf_profile_short_high_ticks = MZF_SHORT_HIGH_TICKS;
 static uint16_t mzf_profile_short_low_ticks = MZF_SHORT_LOW_TICKS;
 static uint16_t mzf_profile_long_high_ticks = MZF_LONG_HIGH_TICKS;
 static uint16_t mzf_profile_long_low_ticks = MZF_LONG_LOW_TICKS;
+static bool mzf_profile_uses_mz800_rom_timing = true;
 static uint16_t mzf_profile_header_leader = MZF_MZ800_LONG_GAP_SHORT_PULSES;
 static uint16_t mzf_profile_data_leader = MZF_MZ800_SHORT_GAP_SHORT_PULSES;
 static uint8_t mzf_profile_header_mark_long = MZF_MZ800_LONG_MARK_LONG_PULSES;
@@ -1100,15 +1103,6 @@ static bool mzf_add_tape_turbo_payload_duration(uint32_t byte_count,
             trailing_short = MZF_TC_LOADER_TRAILING_SHORT_PULSES;
             trailing_long = 0U;
             break;
-        case MZF_LOADER_VARIANT_TC_1_4:
-            short_period = (uint32_t)MZF_TC_1_4_SHORT_HIGH_TICKS +
-                           MZF_TC_1_4_SHORT_LOW_TICKS;
-            long_period = (uint32_t)MZF_TC_1_4_LONG_HIGH_TICKS +
-                          MZF_TC_1_4_LONG_LOW_TICKS;
-            gap_pulses = MZF_TC_1_4_TURBO_GAP_SHORT_PULSES;
-            trailing_short = MZF_TC_LOADER_TRAILING_SHORT_PULSES;
-            trailing_long = 0U;
-            break;
         default:
             return false;
     }
@@ -1137,13 +1131,15 @@ static bool mzf_add_current_tape_turbo_duration(
                           &one_count, &checksum);
     if (!mzf_add_profiled_stage_duration(
             MZF_HEADER_BYTES, one_count, checksum,
-            MZF_MZ800_LONG_GAP_SHORT_PULSES,
-            MZF_MZ800_LONG_MARK_LONG_PULSES,
-            MZF_MZ800_LONG_MARK_SHORT_PULSES,
-            MZF_MZ800_TAPE_MARK_FINAL_LONG_PULSES,
+            mzf_profile_header_leader,
+            mzf_profile_header_mark_long,
+            mzf_profile_header_mark_short,
+            mzf_profile_final_mark_long,
             0U, MZF_MZ800_TRAILING_LONG_PULSES,
-            (uint32_t)MZF_SHORT_HIGH_TICKS + MZF_SHORT_LOW_TICKS,
-            (uint32_t)MZF_LONG_HIGH_TICKS + MZF_LONG_LOW_TICKS,
+            (uint32_t)mzf_profile_short_high_ticks +
+                mzf_profile_short_low_ticks,
+            (uint32_t)mzf_profile_long_high_ticks +
+                mzf_profile_long_low_ticks,
             half_milliseconds))
     {
         return false;
@@ -1161,13 +1157,15 @@ static bool mzf_add_current_tape_turbo_duration(
         mzf_count_buffer_ones(work, loader_length, &one_count, &checksum);
         if (!mzf_add_profiled_stage_duration(
                 loader_length, one_count, checksum,
-                MZF_MZ800_SHORT_GAP_SHORT_PULSES,
-                MZF_MZ800_SHORT_MARK_LONG_PULSES,
-                MZF_MZ800_SHORT_MARK_SHORT_PULSES,
-                MZF_MZ800_TAPE_MARK_FINAL_LONG_PULSES,
+                mzf_profile_data_leader,
+                mzf_profile_data_mark_long,
+                mzf_profile_data_mark_short,
+                mzf_profile_final_mark_long,
                 MZF_TC_LOADER_TRAILING_SHORT_PULSES, 0U,
-                (uint32_t)MZF_SHORT_HIGH_TICKS + MZF_SHORT_LOW_TICKS,
-                (uint32_t)MZF_LONG_HIGH_TICKS + MZF_LONG_LOW_TICKS,
+                (uint32_t)mzf_profile_short_high_ticks +
+                    mzf_profile_short_low_ticks,
+                (uint32_t)mzf_profile_long_high_ticks +
+                    mzf_profile_long_low_ticks,
                 half_milliseconds))
         {
             return false;
@@ -1260,7 +1258,6 @@ static uint16_t mzf_short_high_ticks(void)
                 return MZF_MZ700_3X_SHORT_TICKS;
             case MZF_LOADER_VARIANT_TC_1_2: return MZF_TC_1_2_SHORT_HIGH_TICKS;
             case MZF_LOADER_VARIANT_TC_1_3: return MZF_TC_1_3_SHORT_HIGH_TICKS;
-            case MZF_LOADER_VARIANT_TC_1_4: return MZF_TC_1_4_SHORT_HIGH_TICKS;
             default: return MZF_IC_1_4_SHORT_HIGH_TICKS;
         }
     }
@@ -1280,7 +1277,6 @@ static uint16_t mzf_short_low_ticks(void)
                 return MZF_MZ700_3X_SHORT_TICKS;
             case MZF_LOADER_VARIANT_TC_1_2: return MZF_TC_1_2_SHORT_LOW_TICKS;
             case MZF_LOADER_VARIANT_TC_1_3: return MZF_TC_1_3_SHORT_LOW_TICKS;
-            case MZF_LOADER_VARIANT_TC_1_4: return MZF_TC_1_4_SHORT_LOW_TICKS;
             default: return MZF_IC_1_4_SHORT_LOW_TICKS;
         }
     }
@@ -1300,7 +1296,6 @@ static uint16_t mzf_long_high_ticks(void)
                 return MZF_MZ700_3X_LONG_TICKS;
             case MZF_LOADER_VARIANT_TC_1_2: return MZF_TC_1_2_LONG_HIGH_TICKS;
             case MZF_LOADER_VARIANT_TC_1_3: return MZF_TC_1_3_LONG_HIGH_TICKS;
-            case MZF_LOADER_VARIANT_TC_1_4: return MZF_TC_1_4_LONG_HIGH_TICKS;
             default: return MZF_IC_1_4_LONG_HIGH_TICKS;
         }
     }
@@ -1320,7 +1315,6 @@ static uint16_t mzf_long_low_ticks(void)
                 return MZF_MZ700_3X_LONG_TICKS;
             case MZF_LOADER_VARIANT_TC_1_2: return MZF_TC_1_2_LONG_LOW_TICKS;
             case MZF_LOADER_VARIANT_TC_1_3: return MZF_TC_1_3_LONG_LOW_TICKS;
-            case MZF_LOADER_VARIANT_TC_1_4: return MZF_TC_1_4_LONG_LOW_TICKS;
             default: return MZF_IC_1_4_LONG_LOW_TICKS;
         }
     }
@@ -1331,6 +1325,14 @@ static void mzf_configure_normal_speed(loader_mode_t loader_mode)
 {
     mz_tape_profile_id_t profile_id = MZ_TAPE_PROFILE_MZ800_NORMAL_1X;
     mz_tape_profile_t profile;
+    const bool ic_loader = (loader_mode == LOADER_MODE_IC_1_2) ||
+                           (loader_mode == LOADER_MODE_IC_1_3) ||
+                           (loader_mode == LOADER_MODE_IC_1_4);
+    const bool tc_loader = (loader_mode == LOADER_MODE_TC_1_2) ||
+                           (loader_mode == LOADER_MODE_TC_1_3);
+    const bool ul_loader = (loader_mode == LOADER_MODE_UL) ||
+                           (loader_mode == LOADER_MODE_UL_MZ800) ||
+                           (loader_mode == LOADER_MODE_UL_MZ700);
 
     if (loader_mode == LOADER_MODE_NORMAL_1_2)
     {
@@ -1357,33 +1359,24 @@ static void mzf_configure_normal_speed(loader_mode_t loader_mode)
     {
         profile_id = MZ_TAPE_PROFILE_MZ700_NORMAL_1X;
     }
+    else if (ic_loader)
+    {
+        /* IC always starts with the synthetic Intercopy 1200 header. */
+        profile_id = MZ_TAPE_PROFILE_INTERCOPY_1200;
+    }
 
     if (!mz_tape_profile_read(profile_id, &profile))
     {
         return;
     }
 
-    mzf_profile_short_high_ticks = MZF_US_TO_TICKS(profile.short_high_us);
-    mzf_profile_short_low_ticks = MZF_US_TO_TICKS(profile.short_low_us);
-    mzf_profile_long_high_ticks = MZF_US_TO_TICKS(profile.long_high_us);
-    mzf_profile_long_low_ticks = MZF_US_TO_TICKS(profile.long_low_us);
-
-    /* Use explicit fractional-tick NORMAL profiles instead of rounded
-       microsecond conversion. */
-    if (loader_mode == LOADER_MODE_NORMAL_1_2)
-    {
-        mzf_profile_short_high_ticks = MZF_NORMAL_1_2_SHORT_TICKS;
-        mzf_profile_short_low_ticks = MZF_NORMAL_1_2_SHORT_TICKS;
-        mzf_profile_long_high_ticks = MZF_NORMAL_1_2_LONG_TICKS;
-        mzf_profile_long_low_ticks = MZF_NORMAL_1_2_LONG_TICKS;
-    }
-    else if (loader_mode == LOADER_MODE_NORMAL_1_3)
-    {
-        mzf_profile_short_high_ticks = MZF_NORMAL_1_3_SHORT_TICKS;
-        mzf_profile_short_low_ticks = MZF_NORMAL_1_3_SHORT_TICKS;
-        mzf_profile_long_high_ticks = MZF_NORMAL_1_3_LONG_TICKS;
-        mzf_profile_long_low_ticks = MZF_NORMAL_1_3_LONG_TICKS;
-    }
+    mzf_profile_short_high_ticks = profile.short_high_ticks;
+    mzf_profile_short_low_ticks = profile.short_low_ticks;
+    mzf_profile_long_high_ticks = profile.long_high_ticks;
+    mzf_profile_long_low_ticks = profile.long_low_ticks;
+    mzf_profile_uses_mz800_rom_timing =
+        (loader_mode == LOADER_MODE_NORMAL_1_1) ||
+        (loader_mode == LOADER_MODE_MZ700_3X) || tc_loader;
 
     mzf_profile_header_leader =
         (uint16_t)profile.header_leader_short_pulses;
@@ -1395,6 +1388,17 @@ static void mzf_configure_normal_speed(loader_mode_t loader_mode)
     mzf_profile_data_mark_short = profile.data_mark_short_pulses;
     mzf_profile_final_mark_long = profile.final_mark_long_pulses;
     mzf_profile_duplicate_gap = profile.duplicate_gap_short_pulses;
+
+    if (ul_loader)
+    {
+        mzf_profile_short_high_ticks = MZF_UL_SHORT_HIGH_TICKS;
+        mzf_profile_short_low_ticks = MZF_UL_SHORT_LOW_TICKS;
+        mzf_profile_long_high_ticks = MZF_UL_LONG_HIGH_TICKS;
+        mzf_profile_long_low_ticks = MZF_UL_LONG_LOW_TICKS;
+        mzf_profile_header_leader = MZF_UL_HEADER_LEADER_SHORT_PULSES;
+        mzf_profile_data_leader = MZF_UL_DATA_LEADER_SHORT_PULSES;
+        mzf_profile_uses_mz800_rom_timing = false;
+    }
 }
 
 static void mzf_set_short_pulse(uint16_t *high_ticks, uint16_t *low_ticks)
@@ -1407,6 +1411,53 @@ static void mzf_set_long_pulse(uint16_t *high_ticks, uint16_t *low_ticks)
 {
     *high_ticks = mzf_long_high_ticks();
     *low_ticks = mzf_long_low_ticks();
+}
+
+/* The MZ-800 ROM keeps HIGH pulse lengths fixed, but chooses LOW lengths by
+   framing region and, in encoded data, by the following pulse type. */
+static void mzf_set_profiled_pulse(bool is_long,
+                                   mzf_pulse_region_t region,
+                                   bool next_is_long,
+                                   uint16_t *high_ticks,
+                                   uint16_t *low_ticks)
+{
+    if (is_long)
+    {
+        mzf_set_long_pulse(high_ticks, low_ticks);
+    }
+    else
+    {
+        mzf_set_short_pulse(high_ticks, low_ticks);
+    }
+
+    if (!mzf_profile_uses_mz800_rom_timing ||
+        mzf_stage_uses_tape_turbo_timing())
+    {
+        return;
+    }
+
+    if (region == MZF_PULSE_REGION_LEADER)
+    {
+        if (!is_long) *low_ticks = MZF_MZ800_LEADER_SHORT_LOW_TICKS;
+        return;
+    }
+    if (region == MZF_PULSE_REGION_TAPE_MARK)
+    {
+        *low_ticks = is_long ? MZF_MZ800_MARK_LONG_LOW_TICKS :
+                               MZF_MZ800_MARK_SHORT_LOW_TICKS;
+        return;
+    }
+
+    if (is_long)
+    {
+        *low_ticks = next_is_long ? MZF_MZ800_DATA_LONG_LONG_LOW_TICKS :
+                                    MZF_LONG_LOW_TICKS;
+    }
+    else
+    {
+        *low_ticks = next_is_long ? MZF_MZ800_DATA_SHORT_LONG_LOW_TICKS :
+                                    MZF_SHORT_LOW_TICKS;
+    }
 }
 
 static uint16_t mzf_gap_short_pulses(void)
@@ -1423,8 +1474,6 @@ static uint16_t mzf_gap_short_pulses(void)
                 return MZF_TC_1_2_TURBO_GAP_SHORT_PULSES;
             case MZF_LOADER_VARIANT_TC_1_3:
                 return MZF_TC_1_3_TURBO_GAP_SHORT_PULSES;
-            case MZF_LOADER_VARIANT_TC_1_4:
-                return MZF_TC_1_4_TURBO_GAP_SHORT_PULSES;
             default:
                 return MZF_IC_TURBO_GAP_SHORT_PULSES;
         }
@@ -1548,6 +1597,31 @@ static bool mzf_next_source_byte_from_isr(uint8_t *value)
     return false;
 }
 
+static bool mzf_peek_next_source_msb_from_isr(bool *is_long)
+{
+    if (is_long == NULL) return false;
+
+    if (mzf_stage == MZF_STAGE_HEADER)
+    {
+        if (mzf_header_offset >= MZF_HEADER_BYTES) return false;
+        *is_long = (mzf_header[mzf_header_offset] & 0x80U) != 0U;
+        return true;
+    }
+
+    if ((mzf_stage == MZF_STAGE_DATA) ||
+        (mzf_stage == MZF_STAGE_TAPE_TURBO_DATA))
+    {
+        const uint16_t read_sequence = mzf_fifo_read_sequence;
+        if (read_sequence == mzf_fifo_write_sequence) return false;
+        *is_long =
+            (wav_sample_stream_isr_bytes[read_sequence & MZF_FIFO_MASK] &
+             0x80U) != 0U;
+        return true;
+    }
+
+    return false;
+}
+
 static bool mzf_next_normal_pulse_from_isr(uint16_t *high_ticks,
                                             uint16_t *low_ticks)
 {
@@ -1574,7 +1648,8 @@ static bool mzf_next_normal_pulse_from_isr(uint16_t *high_ticks,
                     mzf_normal_step = MZF_STEP_TAPE_MARK_LONG;
                     continue;
                 }
-                mzf_set_short_pulse(high_ticks, low_ticks);
+                mzf_set_profiled_pulse(false, MZF_PULSE_REGION_LEADER,
+                                       false, high_ticks, low_ticks);
                 mzf_normal_loop--;
                 return true;
 
@@ -1585,7 +1660,8 @@ static bool mzf_next_normal_pulse_from_isr(uint16_t *high_ticks,
                     mzf_normal_step = MZF_STEP_TAPE_MARK_SHORT;
                     continue;
                 }
-                mzf_set_long_pulse(high_ticks, low_ticks);
+                mzf_set_profiled_pulse(true, MZF_PULSE_REGION_TAPE_MARK,
+                                       false, high_ticks, low_ticks);
                 mzf_normal_loop--;
                 return true;
 
@@ -1596,7 +1672,8 @@ static bool mzf_next_normal_pulse_from_isr(uint16_t *high_ticks,
                     mzf_normal_step = MZF_STEP_TAPE_MARK_FINAL;
                     continue;
                 }
-                mzf_set_short_pulse(high_ticks, low_ticks);
+                mzf_set_profiled_pulse(false, MZF_PULSE_REGION_TAPE_MARK,
+                                       false, high_ticks, low_ticks);
                 mzf_normal_loop--;
                 return true;
 
@@ -1610,7 +1687,8 @@ static bool mzf_next_normal_pulse_from_isr(uint16_t *high_ticks,
                     mzf_normal_step = MZF_STEP_BYTE_LOAD;
                     continue;
                 }
-                mzf_set_long_pulse(high_ticks, low_ticks);
+                mzf_set_profiled_pulse(true, MZF_PULSE_REGION_TAPE_MARK,
+                                       false, high_ticks, low_ticks);
                 mzf_normal_loop--;
                 return true;
 
@@ -1637,14 +1715,17 @@ static bool mzf_next_normal_pulse_from_isr(uint16_t *high_ticks,
                     mzf_normal_step = MZF_STEP_BYTE_STOP;
                     continue;
                 }
-                if ((mzf_normal_data & 0x80U) != 0U)
                 {
-                    mzf_set_long_pulse(high_ticks, low_ticks);
-                    mzf_normal_checksum++;
-                }
-                else
-                {
-                    mzf_set_short_pulse(high_ticks, low_ticks);
+                    const bool is_long = (mzf_normal_data & 0x80U) != 0U;
+                    const bool next_is_long =
+                        (mzf_normal_bits_remaining > 1U) ?
+                            ((mzf_normal_data & 0x40U) != 0U) : true;
+                    mzf_set_profiled_pulse(is_long, MZF_PULSE_REGION_DATA,
+                                           next_is_long, high_ticks, low_ticks);
+                    if (is_long)
+                    {
+                        mzf_normal_checksum++;
+                    }
                 }
                 mzf_normal_data <<= 1U;
                 mzf_normal_bits_remaining--;
@@ -1652,7 +1733,19 @@ static bool mzf_next_normal_pulse_from_isr(uint16_t *high_ticks,
 
             case MZF_STEP_BYTE_STOP:
                 /* MZ-800 ROM format: one long stop pulse follows every byte. */
-                mzf_set_long_pulse(high_ticks, low_ticks);
+                {
+                    bool next_is_long;
+                    if (mzf_normal_bytes_remaining == 0UL)
+                    {
+                        next_is_long = (mzf_normal_checksum & 0x8000U) != 0U;
+                    }
+                    else if (!mzf_peek_next_source_msb_from_isr(&next_is_long))
+                    {
+                        next_is_long = false;
+                    }
+                    mzf_set_profiled_pulse(true, MZF_PULSE_REGION_DATA,
+                                           next_is_long, high_ticks, low_ticks);
+                }
                 mzf_normal_step = MZF_STEP_BYTE_LOAD;
                 return true;
 
@@ -1677,20 +1770,25 @@ static bool mzf_next_normal_pulse_from_isr(uint16_t *high_ticks,
                     mzf_normal_step = MZF_STEP_CHECKSUM_STOP;
                     continue;
                 }
-                if ((mzf_normal_data & 0x80U) != 0U)
                 {
-                    mzf_set_long_pulse(high_ticks, low_ticks);
-                }
-                else
-                {
-                    mzf_set_short_pulse(high_ticks, low_ticks);
+                    const bool is_long = (mzf_normal_data & 0x80U) != 0U;
+                    const bool next_is_long =
+                        (mzf_normal_bits_remaining > 1U) ?
+                            ((mzf_normal_data & 0x40U) != 0U) : true;
+                    mzf_set_profiled_pulse(is_long, MZF_PULSE_REGION_DATA,
+                                           next_is_long, high_ticks, low_ticks);
                 }
                 mzf_normal_data <<= 1U;
                 mzf_normal_bits_remaining--;
                 return true;
 
             case MZF_STEP_CHECKSUM_STOP:
-                mzf_set_long_pulse(high_ticks, low_ticks);
+                mzf_set_profiled_pulse(
+                    true, MZF_PULSE_REGION_DATA,
+                    (mzf_normal_checksum_byte_index < 2U) ?
+                        ((mzf_normal_checksum & 0x0080U) != 0U) :
+                        !mzf_stage_uses_tc_trailing(),
+                    high_ticks, low_ticks);
                 mzf_normal_step = MZF_STEP_CHECKSUM_LOAD;
                 return true;
 
@@ -1723,11 +1821,14 @@ static bool mzf_next_normal_pulse_from_isr(uint16_t *high_ticks,
                 }
                 if (mzf_stage_uses_tc_trailing())
                 {
-                    mzf_set_short_pulse(high_ticks, low_ticks);
+                    mzf_set_profiled_pulse(false, MZF_PULSE_REGION_DATA,
+                                           false, high_ticks, low_ticks);
                 }
                 else
                 {
-                    mzf_set_long_pulse(high_ticks, low_ticks);
+                    mzf_set_profiled_pulse(
+                        true, MZF_PULSE_REGION_DATA,
+                        mzf_normal_loop > 1U, high_ticks, low_ticks);
                 }
                 mzf_normal_loop--;
                 return true;
@@ -1735,7 +1836,8 @@ static bool mzf_next_normal_pulse_from_isr(uint16_t *high_ticks,
             case MZF_STEP_DUPLICATE_GAP:
                 if (mzf_normal_loop != 0U)
                 {
-                    mzf_set_short_pulse(high_ticks, low_ticks);
+                    mzf_set_profiled_pulse(false, MZF_PULSE_REGION_LEADER,
+                                           false, high_ticks, low_ticks);
                     mzf_normal_loop--;
                     return true;
                 }
@@ -3011,8 +3113,6 @@ static uint16_t mzf_progress_gap_pulses(mzf_stage_t stage)
                 return MZF_TC_1_2_TURBO_GAP_SHORT_PULSES;
             case MZF_LOADER_VARIANT_TC_1_3:
                 return MZF_TC_1_3_TURBO_GAP_SHORT_PULSES;
-            case MZF_LOADER_VARIANT_TC_1_4:
-                return MZF_TC_1_4_TURBO_GAP_SHORT_PULSES;
             default:
                 return MZF_IC_TURBO_GAP_SHORT_PULSES;
         }

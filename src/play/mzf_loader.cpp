@@ -28,7 +28,6 @@
 #define MZF_LOADER_IC_1_2_SPEED_BYTE 0x20U
 #define MZF_LOADER_TC_1_3_SPEED_BYTE 0x1BU
 #define MZF_LOADER_TC_1_2_SPEED_BYTE 0x29U
-#define MZF_LOADER_TC_1_4_SPEED_BYTE 0x16U
 #define MZF_LOADER_TC_LOADER_ADDR 0xD400U
 #define MZF_LOADER_TC_LOADER_SIZE 90U
 #define MZF_LOADER_TC_SPEED_OFFSET 0x4BU
@@ -514,8 +513,7 @@ static bool is_ic_mode(loader_mode_t mode)
 
 static bool is_tc_mode(loader_mode_t mode)
 {
-    return (mode == LOADER_MODE_TC_1_4) ||
-           (mode == LOADER_MODE_TC_1_3) ||
+    return (mode == LOADER_MODE_TC_1_3) ||
            (mode == LOADER_MODE_TC_1_2);
 }
 
@@ -528,8 +526,7 @@ static bool is_ic_variant(mzf_loader_variant_t variant)
 
 static bool is_tc_variant(mzf_loader_variant_t variant)
 {
-    return (variant == MZF_LOADER_VARIANT_TC_1_4) ||
-           (variant == MZF_LOADER_VARIANT_TC_1_3) ||
+    return (variant == MZF_LOADER_VARIANT_TC_1_3) ||
            (variant == MZF_LOADER_VARIANT_TC_1_2);
 }
 
@@ -546,7 +543,6 @@ static mzf_loader_variant_t mode_to_variant(loader_mode_t mode)
         case LOADER_MODE_IC_1_4: return MZF_LOADER_VARIANT_IC_1_4;
         case LOADER_MODE_IC_1_3: return MZF_LOADER_VARIANT_IC_1_3;
         case LOADER_MODE_IC_1_2: return MZF_LOADER_VARIANT_IC_1_2;
-        case LOADER_MODE_TC_1_4: return MZF_LOADER_VARIANT_TC_1_4;
         case LOADER_MODE_TC_1_3: return MZF_LOADER_VARIANT_TC_1_3;
         case LOADER_MODE_TC_1_2: return MZF_LOADER_VARIANT_TC_1_2;
         default: return MZF_LOADER_VARIANT_NONE;
@@ -567,8 +563,6 @@ static uint8_t tc_speed_byte(void)
 {
     if (context.variant == MZF_LOADER_VARIANT_TC_1_2)
         return MZF_LOADER_TC_1_2_SPEED_BYTE;
-    if (context.variant == MZF_LOADER_VARIANT_TC_1_4)
-        return MZF_LOADER_TC_1_4_SPEED_BYTE;
     return MZF_LOADER_TC_1_3_SPEED_BYTE;
 }
 

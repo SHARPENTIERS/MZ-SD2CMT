@@ -67,8 +67,8 @@ static uint16_t difference_u16(uint16_t left, uint16_t right)
 }
 
 /* The neutral decoder learns the complete short pulse in 16 us units x8.
-   Native MZ800 profiles center close to 250, 136 and 113.  Metadata-free
-   NORMAL 1:4 samples center close to 96 and use an approximately
+   QDTool-compatible profiles center close to 248, 126 and 106.  Metadata-free
+   NORMAL 1:4 samples center close to 97 and use an approximately
    11,000-pulse header pilot.  Requiring both properties prevents a fast or
    speed-shifted NORMAL pilot from being classified from pulse width alone. */
 static mzi_record_profile_t profile_from_header_tone(uint16_t short_x8,
@@ -80,10 +80,10 @@ static mzi_record_profile_t profile_from_header_tone(uint16_t short_x8,
     uint16_t d4;
 
     if (short_x8 == 0U) return MZI_RECORD_PROFILE_NORMAL_1_1;
-    d1 = difference_u16(short_x8, 250U);
-    d2 = difference_u16(short_x8, 136U);
-    d3 = difference_u16(short_x8, 113U);
-    d4 = difference_u16(short_x8, 96U);
+    d1 = difference_u16(short_x8, 248U);
+    d2 = difference_u16(short_x8, 126U);
+    d3 = difference_u16(short_x8, 106U);
+    d4 = difference_u16(short_x8, 97U);
     if ((leader_pulses >= 8000U) && (leader_pulses <= 13000U) &&
         (d4 < d3) && (d4 < d2) && (d4 < d1))
     {
@@ -103,7 +103,6 @@ static mzi_record_profile_t profile_from_copier(mz_copier_profile_t profile)
         case MZ_COPIER_IC_1_2: return MZI_RECORD_PROFILE_IC_1_2;
         case MZ_COPIER_TC_1_3: return MZI_RECORD_PROFILE_TC_1_3;
         case MZ_COPIER_TC_1_2: return MZI_RECORD_PROFILE_TC_1_2;
-        case MZ_COPIER_TC_1_4: return MZI_RECORD_PROFILE_TC_1_4;
         case MZ_COPIER_NONE:
         default: return MZI_RECORD_PROFILE_NORMAL_1_1;
     }

@@ -34,6 +34,7 @@ typedef enum
     MZ_TAPE_PROFILE_TC_1_3,
     MZ_TAPE_PROFILE_TC_1_2,
     MZ_TAPE_PROFILE_MZ800_NORMAL_4X,
+    MZ_TAPE_PROFILE_INTERCOPY_1200,
     MZ_TAPE_PROFILE_COUNT
 } mz_tape_profile_id_t;
 
@@ -42,10 +43,12 @@ typedef struct
     mz_tape_profile_id_t id;
     mz_tape_framing_t framing;
     uint8_t caps;
-    uint16_t short_high_us;
-    uint16_t short_low_us;
-    uint16_t long_high_us;
-    uint16_t long_low_us;
+    /* Timer3 runs at 16 MHz.  Keeping half-pulses in timer ticks retains
+       the fractional-microsecond timings of the reference profiles. */
+    uint16_t short_high_ticks;
+    uint16_t short_low_ticks;
+    uint16_t long_high_ticks;
+    uint16_t long_low_ticks;
     uint32_t header_leader_short_pulses;
     uint32_t data_leader_short_pulses;
     uint8_t header_mark_long_pulses;

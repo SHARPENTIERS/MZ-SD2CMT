@@ -52,7 +52,6 @@ static const char mode_ic3[] PROGMEM = "IC3";
 static const char mode_ic4[] PROGMEM = "IC4";
 static const char mode_tc2[] PROGMEM = "TC2";
 static const char mode_tc3[] PROGMEM = "TC3";
-static const char mode_tc4[] PROGMEM = "TC4";
 static const char mode_ul[] PROGMEM = "UL";
 static const char mode_ul8[] PROGMEM = "UL8";
 static const char mode_ul7[] PROGMEM = "UL7";
@@ -262,7 +261,6 @@ static PGM_P mzt_loader_label_P(loader_mode_t mode)
         case LOADER_MODE_IC_1_4: return mode_ic4;
         case LOADER_MODE_TC_1_2: return mode_tc2;
         case LOADER_MODE_TC_1_3: return mode_tc3;
-        case LOADER_MODE_TC_1_4: return mode_tc4;
         case LOADER_MODE_UL: return mode_ul;
         case LOADER_MODE_UL_MZ800: return mode_ul8;
         case LOADER_MODE_UL_MZ700: return mode_ul7;

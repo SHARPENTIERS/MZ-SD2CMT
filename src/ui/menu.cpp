@@ -153,7 +153,8 @@ static menu_speed_t normalized_speed(menu_loader_t mode, menu_speed_t speed)
         return MENU_SPEED_1_1;
     if ((mode == MENU_LOADER_IC) && (speed == MENU_SPEED_1_1))
         return MENU_SPEED_1_4;
-    if ((mode == MENU_LOADER_TC) && (speed == MENU_SPEED_1_1))
+    if ((mode == MENU_LOADER_TC) &&
+        (speed != MENU_SPEED_1_2) && (speed != MENU_SPEED_1_3))
         return MENU_SPEED_1_3;
     return speed;
 }
@@ -286,12 +287,10 @@ static void cycle_speed(void)
     }
     else if (loader_mode == MENU_LOADER_TC)
     {
-        if (loader_speed == MENU_SPEED_1_4)
-            loader_speed = MENU_SPEED_1_3;
-        else if (loader_speed == MENU_SPEED_1_3)
+        if (loader_speed == MENU_SPEED_1_3)
             loader_speed = MENU_SPEED_1_2;
         else
-            loader_speed = MENU_SPEED_1_4;
+            loader_speed = MENU_SPEED_1_3;
     }
     remember_loader_speed();
 }
@@ -364,10 +363,6 @@ static void apply_loader_mode(loader_mode_t mode)
             loader_mode = MENU_LOADER_TC;
             loader_speed = MENU_SPEED_1_3;
             break;
-        case LOADER_MODE_TC_1_4:
-            loader_mode = MENU_LOADER_TC;
-            loader_speed = MENU_SPEED_1_4;
-            break;
         case LOADER_MODE_NORMAL_1_1:
         default:
             loader_mode = MENU_LOADER_NORMAL;
@@ -402,7 +397,6 @@ loader_mode_t menu_get_loader_mode(void)
             return LOADER_MODE_IC_1_4;
         case MENU_LOADER_TC:
             if (loader_speed == MENU_SPEED_1_2) return LOADER_MODE_TC_1_2;
-            if (loader_speed == MENU_SPEED_1_4) return LOADER_MODE_TC_1_4;
             return LOADER_MODE_TC_1_3;
         default:
             return LOADER_MODE_NORMAL_1_1;
