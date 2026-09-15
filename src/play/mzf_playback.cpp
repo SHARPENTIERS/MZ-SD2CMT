@@ -31,8 +31,29 @@
 #define MZF_HEADER_BYTES 128U
 #define MZF_HEADER_DATA_LENGTH_OFFSET 0x12U
 
-/* Timer3 has no prescaler, so one tick is 1/16 us.  The native MZ-800 ROM
-   timing below is converted from its 3.546875 MHz source clock. */
+/*
+   MZF pulse reference (source us, SHORT/LONG = HIGH/LOW; H/D = header/data):
+
+   Mode or stage                SHORT H/L       LONG H/L        Leader H/D Origin
+   NRL1:1, IC hdr, TC hdr/ldr   237.956/context 469.145/context 11000/5500 ROM800
+   UL pre-transfer data/marks   237.956/context 469.145/context see below  ROM800
+   NRL1:2, IC1:2 data           113.621/139.278 234.573/260.229 11000/5500 IC2400
+   NRL1:3, IC1:3 data            87.965/124.617 175.930/223.577 11000/5500 IC2800
+   NRL1:4, IC1:4 data            76.969/117.286 157.604/179.595 11000/5500 IC3200
+   MZ700 NRL1:1, MZ7-3 hdr      240.000/264.000 464.000/494.000 11000/5500 ROM700
+   MZ700 FAST3 data              80.000/80.000  160.000/160.000 -/5500     ROM700
+   TC1:2 data                   141.818/140.909 282.727/282.727 -/5500     TurboCopy
+   TC1:3 data                   105.455/104.545 210.000/210.000 -/5500     TurboCopy
+   UL/UL800 leader              237.956/258.819 -               2000/1000  ROM800
+   UL700 leader                 240.000/264.000 -               2000/1000  ROM700
+
+   ROM800 LOW context: leader S=258.819; mark S/L=256.000/487.189;
+   data S->S/S->L=255.436/252.617, L->S/L->L=486.626/483.806 us.
+   NRL1:2..1:4 come from Intercopy routines; TC timing comes from Turbo Copy
+   analysis. Polarity is stage-specific: NRL/MZ700/UL and IC header are H->L;
+   IC data and every TC stage are L->H. Timer3 rounds these source values to
+   the nearest 16 MHz tick (0.0625 us); constants below are actual.
+*/
 #define MZF_TICKS_PER_US ((uint16_t)(F_CPU / 1000000UL))
 #define MZF_US_TO_TICKS(us) ((uint16_t)((uint32_t)(us) * MZF_TICKS_PER_US))
 #define MZF_SHORT_HIGH_TICKS ((uint16_t)3807U)
@@ -44,6 +65,8 @@
 #define MZF_MZ800_MARK_LONG_LOW_TICKS    ((uint16_t)7795U)
 #define MZF_MZ800_DATA_SHORT_LONG_LOW_TICKS ((uint16_t)4042U)
 #define MZF_MZ800_DATA_LONG_LONG_LOW_TICKS  ((uint16_t)7741U)
+#define MZF_MZ700_LEADER_SHORT_HIGH_TICKS MZF_US_TO_TICKS(240U)
+#define MZF_MZ700_LEADER_SHORT_LOW_TICKS  MZF_US_TO_TICKS(264U)
 
 #define MZF_IC_1_4_SHORT_HIGH_TICKS ((uint16_t)1232U)
 #define MZF_IC_1_4_SHORT_LOW_TICKS  ((uint16_t)1877U)
@@ -81,14 +104,12 @@
 #define MZF_MZ800_TRAILING_LONG_PULSES 2U
 #define MZF_TC_LOADER_TRAILING_SHORT_PULSES 98U
 
-/* UL/UL800/UL700 are live-handshake transports outside the static QDTool
-   export profiles.  Preserve their proven pre-change carrier timing. */
-#define MZF_UL_SHORT_HIGH_TICKS MZF_US_TO_TICKS(250U)
-#define MZF_UL_SHORT_LOW_TICKS  MZF_US_TO_TICKS(250U)
-#define MZF_UL_LONG_HIGH_TICKS  MZF_US_TO_TICKS(500U)
-#define MZF_UL_LONG_LOW_TICKS   MZF_US_TO_TICKS(500U)
+/* UL/UL800/UL700 are live-handshake transports outside static exports. */
 #define MZF_UL_HEADER_LEADER_SHORT_PULSES 2000U
 #define MZF_UL_DATA_LEADER_SHORT_PULSES   1000U
+#define MZF_UL_LEADER_TIMING_NONE  0U
+#define MZF_UL_LEADER_TIMING_MZ800 1U
+#define MZF_UL_LEADER_TIMING_MZ700 2U
 
 #define MZF_FIFO_BYTES WAV_SAMPLE_STREAM_BUFFER_BYTES
 #define MZF_FIFO_CAPACITY (MZF_FIFO_BYTES - 1U)
@@ -184,6 +205,7 @@ static uint16_t mzf_profile_short_low_ticks = MZF_SHORT_LOW_TICKS;
 static uint16_t mzf_profile_long_high_ticks = MZF_LONG_HIGH_TICKS;
 static uint16_t mzf_profile_long_low_ticks = MZF_LONG_LOW_TICKS;
 static bool mzf_profile_uses_mz800_rom_timing = true;
+static uint8_t mzf_ul_leader_timing = MZF_UL_LEADER_TIMING_NONE;
 static uint16_t mzf_profile_header_leader = MZF_MZ800_LONG_GAP_SHORT_PULSES;
 static uint16_t mzf_profile_data_leader = MZF_MZ800_SHORT_GAP_SHORT_PULSES;
 static uint8_t mzf_profile_header_mark_long = MZF_MZ800_LONG_MARK_LONG_PULSES;
@@ -1355,14 +1377,9 @@ static void mzf_configure_normal_speed(loader_mode_t loader_mode)
     }
 
     mzf_native_mz700 = (loader_mode == LOADER_MODE_MZ700_1X);
-    if (mzf_native_mz700)
+    if (mzf_native_mz700 || (loader_mode == LOADER_MODE_MZ700_3X))
     {
         profile_id = MZ_TAPE_PROFILE_MZ700_NORMAL_1X;
-    }
-    else if (ic_loader)
-    {
-        /* IC always starts with the synthetic Intercopy 1200 header. */
-        profile_id = MZ_TAPE_PROFILE_INTERCOPY_1200;
     }
 
     if (!mz_tape_profile_read(profile_id, &profile))
@@ -1376,7 +1393,8 @@ static void mzf_configure_normal_speed(loader_mode_t loader_mode)
     mzf_profile_long_low_ticks = profile.long_low_ticks;
     mzf_profile_uses_mz800_rom_timing =
         (loader_mode == LOADER_MODE_NORMAL_1_1) ||
-        (loader_mode == LOADER_MODE_MZ700_3X) || tc_loader;
+        ic_loader || tc_loader || ul_loader;
+    mzf_ul_leader_timing = MZF_UL_LEADER_TIMING_NONE;
 
     mzf_profile_header_leader =
         (uint16_t)profile.header_leader_short_pulses;
@@ -1391,13 +1409,10 @@ static void mzf_configure_normal_speed(loader_mode_t loader_mode)
 
     if (ul_loader)
     {
-        mzf_profile_short_high_ticks = MZF_UL_SHORT_HIGH_TICKS;
-        mzf_profile_short_low_ticks = MZF_UL_SHORT_LOW_TICKS;
-        mzf_profile_long_high_ticks = MZF_UL_LONG_HIGH_TICKS;
-        mzf_profile_long_low_ticks = MZF_UL_LONG_LOW_TICKS;
         mzf_profile_header_leader = MZF_UL_HEADER_LEADER_SHORT_PULSES;
         mzf_profile_data_leader = MZF_UL_DATA_LEADER_SHORT_PULSES;
-        mzf_profile_uses_mz800_rom_timing = false;
+        mzf_ul_leader_timing = (loader_mode == LOADER_MODE_UL_MZ700) ?
+            MZF_UL_LEADER_TIMING_MZ700 : MZF_UL_LEADER_TIMING_MZ800;
     }
 }
 
@@ -1428,6 +1443,22 @@ static void mzf_set_profiled_pulse(bool is_long,
     else
     {
         mzf_set_short_pulse(high_ticks, low_ticks);
+    }
+
+    if ((region == MZF_PULSE_REGION_LEADER) && !is_long &&
+        (mzf_ul_leader_timing != MZF_UL_LEADER_TIMING_NONE))
+    {
+        if (mzf_ul_leader_timing == MZF_UL_LEADER_TIMING_MZ700)
+        {
+            *high_ticks = MZF_MZ700_LEADER_SHORT_HIGH_TICKS;
+            *low_ticks = MZF_MZ700_LEADER_SHORT_LOW_TICKS;
+        }
+        else
+        {
+            *high_ticks = MZF_SHORT_HIGH_TICKS;
+            *low_ticks = MZF_MZ800_LEADER_SHORT_LOW_TICKS;
+        }
+        return;
     }
 
     if (!mzf_profile_uses_mz800_rom_timing ||

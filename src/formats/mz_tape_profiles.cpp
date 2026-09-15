@@ -43,9 +43,6 @@ static const mz_tape_profile_t mz_tape_profiles_P[MZ_TAPE_PROFILE_COUNT]
       40U, 40U, 20U, 20U, 2U, 0U, false, false },
     { MZ_TAPE_PROFILE_MZ800_NORMAL_4X, MZ_TAPE_FRAMING_MZ800_NATIVE,
       CAPS_NATIVE, 1232U, 1877U, 2522U, 2874U, 11000UL, 5500UL,
-      40U, 40U, 20U, 20U, 2U, 0U, false, false },
-    { MZ_TAPE_PROFILE_INTERCOPY_1200, MZ_TAPE_FRAMING_IC_TURBO,
-      MZ_TAPE_CAP_PLAY, 3753U, 4222U, 7506U, 7917U, 11000UL, 5500UL,
       40U, 40U, 20U, 20U, 2U, 0U, false, false }
 };
 
