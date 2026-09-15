@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="520" viewBox="0 0 1200 520">
+  <defs>
+    <style>
+      .title{font:700 28px Arial,sans-serif;fill:#222}
+      .label{font:700 22px Arial,sans-serif;fill:#222}
+      .small{font:18px Arial,sans-serif;fill:#333}
+      .box{fill:#f5f5f5;stroke:#222;stroke-width:3;rx:18}
+      .board{fill:#2f7d43;stroke:#1d4728;stroke-width:3;rx:12}
+      .lcd{fill:#17344f;stroke:#111;stroke-width:3;rx:8}
+      .sd{fill:#d9d9d9;stroke:#333;stroke-width:3;rx:10}
+      .line{stroke:#333;stroke-width:5;fill:none}
+      .arrow{fill:#333}
+    </style>
+    <marker id="arrow" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto">
+      <path d="M0,0 L10,4 L0,8 z" class="arrow"/>
+    </marker>
+  </defs>
+  <text x="600" y="45" text-anchor="middle" class="title">Original-compatible modular hardware concept</text>
+
+  <rect x="55" y="120" width="340" height="265" class="board"/>
+  <text x="225" y="160" text-anchor="middle" class="label" fill="#fff">Arduino Mega 2560</text>
+  <rect x="105" y="195" width="240" height="65" fill="#1f5e34" stroke="#173f25" stroke-width="2" rx="6"/>
+  <text x="225" y="236" text-anchor="middle" class="small" fill="#fff">ATmega2560</text>
+  <g fill="#111">
+    <rect x="75" y="290" width="300" height="18" rx="4"/><rect x="75" y="330" width="300" height="18" rx="4"/>
+  </g>
+  <text x="225" y="415" text-anchor="middle" class="small">same MCU / core pin concept as MZ-SD2CMT</text>
+
+  <rect x="465" y="105" width="310" height="190" class="box"/>
+  <rect x="500" y="135" width="240" height="72" class="lcd"/>
+  <text x="620" y="180" text-anchor="middle" font-family="monospace" font-size="24" fill="#bfe7ff">16 x 2 LCD</text>
+  <g fill="#555" stroke="#222" stroke-width="2">
+    <circle cx="515" cy="245" r="18"/><circle cx="570" cy="245" r="18"/><circle cx="625" cy="245" r="18"/><circle cx="680" cy="245" r="18"/><circle cx="735" cy="245" r="18"/>
+  </g>
+  <text x="620" y="325" text-anchor="middle" class="label">LCD Keypad Shield</text>
+
+  <rect x="875" y="120" width="260" height="180" class="sd"/>
+  <rect x="930" y="150" width="150" height="105" fill="#444" stroke="#111" stroke-width="3" rx="5"/>
+  <rect x="960" y="160" width="90" height="80" fill="#202020" rx="4"/>
+  <text x="1005" y="335" text-anchor="middle" class="label">SD-card module</text>
+
+  <path d="M395 235 H465" class="line" marker-end="url(#arrow)"/>
+  <path d="M775 220 H875" class="line" marker-end="url(#arrow)"/>
+  <path d="M225 385 V455 H1005 V300" class="line" marker-end="url(#arrow)"/>
+  <text x="620" y="485" text-anchor="middle" class="small">Sharp MZ CMT interface: WRITE / MOTOR / READ / SENSE</text>
+</svg>
