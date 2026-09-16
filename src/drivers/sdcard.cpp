@@ -21,6 +21,24 @@
 #define SD_CARD_DETECT_DEBOUNCE_MS 50U
 #define SD_CARD_DETECT_POLL_INTERVAL_MS 10U
 
+/*
+    A standalone CMD10/readCID miss must never immediately turn into
+    "SD CARD ERROR".  Some cards can still be internally busy around a recent
+    write/sync/close and older blocking delays used to hide that timing.
+
+    Confirmation is deliberately non-blocking: failures are counted only when
+    they are at least SD_SOFT_PROBE_SPACING_MS apart.  A later successful CID
+    read clears the suspicion immediately.  Successful real filesystem or
+    stream traffic clears it as well, so isolated misses do not accumulate
+    during normal card use.
+
+    This is also the software fallback for hardware/module variants without a
+    wired CARD DETECT switch: removal is eventually confirmed by repeated SPI
+    probe failures even if pin 3 never changes.
+*/
+#define SD_SOFT_PROBE_FAILURE_LIMIT 3U
+#define SD_SOFT_PROBE_SPACING_MS 100U
+
 /* Card-detect state is bit-packed into one byte to minimize persistent SRAM. */
 #define SD_CARD_DETECT_FLAG_KNOWN (1U << 0)
 #define SD_CARD_DETECT_FLAG_LAST_INSERTED (1U << 1)
@@ -51,9 +69,32 @@ static uint8_t sdcard_detect_flags = 0U;
 static uint16_t sdcard_detect_candidate_since_ms = 0U;
 static uint16_t sdcard_detect_last_poll_ms = 0U;
 
+/* Three bytes of persistent state replace old timing dependence on delays. */
+static uint8_t sdcard_soft_probe_failures = 0U;
+static uint16_t sdcard_soft_probe_last_failure_ms = 0U;
+
+static uint8_t sdcard_error_code = 0U;
+static uint8_t sdcard_error_data = 0U;
+
 static void sdcard_set_error_P(PGM_P text)
 {
     flash_text_copy(sdcard_error, sizeof(sdcard_error), text);
+}
+
+static void sdcard_clear_soft_probe_failures(void)
+{
+    sdcard_soft_probe_failures = 0U;
+    sdcard_soft_probe_last_failure_ms = 0U;
+}
+
+static void sdcard_set_ok(void)
+{
+    /* Do not clear a pending soft-probe suspicion here.  Some callers reach
+       this helper after a tolerated CMD10 miss.  Only a successful CID read or
+       a successful real filesystem/stream operation may clear that state. */
+    sdcard_error_code = 0U;
+    sdcard_error_data = 0U;
+    sdcard_set_error_P(PSTR("OK"));
 }
 
 static bool sdcard_read_detect_pin(void)
@@ -104,9 +145,6 @@ static void sdcard_detect_reset_to_current(void)
     sdcard_detect_clear_pending();
 }
 
-static uint8_t sdcard_error_code = 0;
-static uint8_t sdcard_error_data = 0;
-
 static void sdcard_close_all_files(void)
 {
     if (sdcard_stream_file.isOpen())
@@ -119,6 +157,9 @@ static void sdcard_set_card_error(void)
 {
     sdcard_close_all_files();
     sdcard_mounted = false;
+    sdcard_clear_soft_probe_failures();
+
+    /* Hardware detect is useful when present, but not required. */
     (void)sdcard_detect_poll();
     sdcard_set_error_P(sdcard_detect_flag(SD_CARD_DETECT_FLAG_REMOVED_PENDING) ?
                        PSTR("INSERT CARD") : PSTR("SD CARD ERROR"));
@@ -130,26 +171,76 @@ static void sdcard_set_card_error(void)
     }
     else
     {
-        sdcard_error_code = 0;
-        sdcard_error_data = 0;
+        sdcard_error_code = 0U;
+        sdcard_error_data = 0U;
     }
 }
 
 /*
-    Browser operations probe with CMD10. Stream and conversion reads avoid a
-    probe per block because that would add latency; an actual I/O error drops
-    the mounted state through sdcard_set_card_error().
+    Tolerant liveness probe.
+
+    The old implementation treated one failed CMD10 as proof that the card was
+    gone.  That made harmless transient misses visible as "SD CARD ERROR",
+    especially after the project was converted from blocking delays to a
+    service-driven state machine.
+
+    New rule:
+      - debounced CARD DETECT removal (when actually wired) is authoritative;
+      - successful CMD10 immediately proves the card is alive;
+      - failed CMD10 is only a suspicion;
+      - three failed probes, each at least 100 ms apart, confirm the software
+        removal path for boards without CARD DETECT.
+
+    No delay() is used and no extra work is added to Timer1/Timer3 ISRs.
 */
 static bool sdcard_probe_present(void)
 {
     cid_t cid;
+    uint16_t now;
+    uint16_t elapsed;
 
     if (!sdcard_mounted || (sd.card() == NULL))
     {
         return false;
     }
 
-    if (!sd.card()->readCID(&cid))
+    (void)sdcard_detect_poll();
+    if (sdcard_detect_flag(SD_CARD_DETECT_FLAG_REMOVED_PENDING))
+    {
+        sdcard_set_card_error();
+        return false;
+    }
+
+    if (sd.card()->readCID(&cid))
+    {
+        sdcard_clear_soft_probe_failures();
+        return true;
+    }
+
+    now = (uint16_t)millis();
+
+    if (sdcard_soft_probe_failures == 0U)
+    {
+        sdcard_soft_probe_failures = 1U;
+        sdcard_soft_probe_last_failure_ms = now;
+        return true;
+    }
+
+    elapsed = (uint16_t)(now - sdcard_soft_probe_last_failure_ms);
+
+    /* Calls clustered inside one filesystem operation count as one failure. */
+    if (elapsed < SD_SOFT_PROBE_SPACING_MS)
+    {
+        return true;
+    }
+
+    sdcard_soft_probe_last_failure_ms = now;
+    if (sdcard_soft_probe_failures < 0xFFU)
+    {
+        sdcard_soft_probe_failures++;
+    }
+
+    if (sdcard_soft_probe_failures >= SD_SOFT_PROBE_FAILURE_LIMIT)
     {
         sdcard_set_card_error();
         return false;
@@ -164,6 +255,9 @@ void sdcard_early_prepare_pins(void)
     pinMode(SD_CHIP_SELECT_PIN, OUTPUT);
     digitalWrite(SD_CHIP_SELECT_PIN, HIGH);
 
+    /* INPUT_PULLUP is harmless on boards where the SD module has no detect pin.
+       In that case the pin normally stays HIGH and software probing remains the
+       fallback for card removal. */
     pinMode(SD_CARD_DETECT_PIN, INPUT_PULLUP);
     if (!sdcard_detect_flag(SD_CARD_DETECT_FLAG_KNOWN))
     {
@@ -182,9 +276,9 @@ static void sdcard_send_idle_clocks(void)
     SPI.begin();
     SPI.beginTransaction(SPISettings(250000, MSBFIRST, SPI_MODE0));
 
-    for (uint8_t i = 0; i < 10; i++)
+    for (uint8_t i = 0U; i < 10U; i++)
     {
-        SPI.transfer(0xFF);
+        SPI.transfer(0xFFU);
     }
 
     SPI.endTransaction();
@@ -194,23 +288,30 @@ static bool sdcard_initialize(bool force_reinitialize)
 {
     sdcard_early_prepare_pins();
 
+    /*
+        A normal sdcard_init() on an already mounted card is only a liveness
+        check.  The tolerant probe means RECORD short/long presses can no
+        longer unmount a healthy card because of one transient CMD10 miss.
+    */
     if (!force_reinitialize && sdcard_mounted && sdcard_probe_present())
     {
-        sdcard_set_error_P(PSTR("OK"));
-        sdcard_error_code = 0;
-        sdcard_error_data = 0;
+        sdcard_set_ok();
         sdcard_detect_reset_to_current();
         return true;
     }
 
     sdcard_close_all_files();
     sdcard_mounted = false;
+    sdcard_clear_soft_probe_failures();
     sdcard_set_error_P(PSTR("SD CARD ERROR"));
-    sdcard_error_code = 0;
-    sdcard_error_data = 0;
+    sdcard_error_code = 0U;
+    sdcard_error_data = 0U;
 
-    /* Card insertion is debounced by the foreground detector. Initialization
-       starts immediately after the required SPI idle clocks. */
+    /*
+        Do not restore old blocking delays here.  SdFat performs its own card
+        initialization, while browser bootstrap already retries directory
+        access asynchronously.  The required SPI idle clocks remain explicit.
+    */
     sdcard_send_idle_clocks();
 
     if (!sd.begin(SdSpiConfig(
@@ -223,15 +324,19 @@ static bool sdcard_initialize(bool force_reinitialize)
     }
 
     sdcard_mounted = true;
+    sdcard_clear_soft_probe_failures();
 
+    /*
+        Keep a software liveness confirmation after begin(), but make it
+        tolerant.  A first transient CID miss therefore no longer invalidates
+        an otherwise successful SdFat initialization.
+    */
     if (!sdcard_probe_present())
     {
         return false;
     }
 
-    sdcard_set_error_P(PSTR("OK"));
-    sdcard_error_code = 0;
-    sdcard_error_data = 0;
+    sdcard_set_ok();
     sdcard_detect_reset_to_current();
     return true;
 }
@@ -316,6 +421,7 @@ bool sdcard_detect_removed_edge(void)
     (void)sdcard_detect_poll();
     return sdcard_detect_flag(SD_CARD_DETECT_FLAG_REMOVED_PENDING);
 }
+
 bool sdcard_init(void)
 {
     return sdcard_initialize(false);
@@ -335,42 +441,44 @@ uint16_t sdcard_count_entries(const char *path, uint16_t max_entries)
 {
     FsFile dir;
     FsFile file;
-    uint16_t count = 0;
+    uint16_t count = 0U;
 
     if (path == NULL)
     {
         sdcard_set_error_P(PSTR("BAD PATH"));
-        return 0;
+        return 0U;
     }
 
     if (!sdcard_probe_present())
     {
-        return 0;
+        return 0U;
     }
 
     if (!dir.open(path))
     {
         if (!sdcard_probe_present())
         {
-            return 0;
+            return 0U;
         }
         sdcard_set_error_P(PSTR("DIR FAIL"));
-        return 0;
+        return 0U;
     }
 
     if (!dir.isDir())
     {
         dir.close();
         sdcard_set_error_P(PSTR("NOT DIR"));
-        return 0;
+        return 0U;
     }
+
+    sdcard_clear_soft_probe_failures();
 
     while (file.openNext(&dir, O_RDONLY))
     {
         count++;
         file.close();
 
-        if (count >= max_entries)
+        if ((max_entries != 0U) && (count >= max_entries))
         {
             break;
         }
@@ -380,18 +488,19 @@ uint16_t sdcard_count_entries(const char *path, uint16_t max_entries)
 
     if (!sdcard_probe_present())
     {
-        return 0;
+        return 0U;
     }
 
-    sdcard_set_error_P(PSTR("OK"));
+    sdcard_set_ok();
     return count;
 }
 
-bool sdcard_read_entry_by_index(const char *path, uint16_t index, sdcard_entry_t *entry)
+bool sdcard_read_entry_by_index(const char *path, uint16_t index,
+                                sdcard_entry_t *entry)
 {
     FsFile dir;
     FsFile file;
-    uint16_t current_index = 0;
+    uint16_t current_index = 0U;
 
     if (path == NULL)
     {
@@ -429,15 +538,19 @@ bool sdcard_read_entry_by_index(const char *path, uint16_t index, sdcard_entry_t
         return false;
     }
 
+    sdcard_clear_soft_probe_failures();
+
     while (file.openNext(&dir, O_RDONLY))
     {
         if (current_index == index)
         {
-            entry->name_too_long = (file.getName(entry->name, sizeof(entry->name)) == 0U);
-            entry->name[sizeof(entry->name) - 1] = '\0';
+            entry->name_too_long =
+                (file.getName(entry->name, sizeof(entry->name)) == 0U);
+            entry->name[sizeof(entry->name) - 1U] = '\0';
             if (entry->name_too_long)
             {
-                flash_text_copy(entry->name, sizeof(entry->name), PSTR("NAME TOO LONG"));
+                flash_text_copy(entry->name, sizeof(entry->name),
+                                PSTR("NAME TOO LONG"));
             }
             entry->is_dir = file.isDir();
             entry->size = file.fileSize();
@@ -451,7 +564,7 @@ bool sdcard_read_entry_by_index(const char *path, uint16_t index, sdcard_entry_t
                 return false;
             }
 
-            sdcard_set_error_P(PSTR("OK"));
+            sdcard_set_ok();
             return true;
         }
 
@@ -468,7 +581,7 @@ bool sdcard_read_entry_by_index(const char *path, uint16_t index, sdcard_entry_t
 
     flash_text_copy(entry->name, sizeof(entry->name), PSTR("NO ENTRY"));
     entry->is_dir = false;
-    entry->size = 0;
+    entry->size = 0UL;
     sdcard_set_error_P(PSTR("NO ENTRY"));
     return false;
 }
@@ -483,7 +596,8 @@ static void sdcard_copy_entry_from_file(FsFile *file,
                                         sdcard_entry_t *entry)
 {
     memset(entry, 0, sizeof(sdcard_entry_t));
-    entry->name_too_long = (file->getName(entry->name, sizeof(entry->name)) == 0U);
+    entry->name_too_long =
+        (file->getName(entry->name, sizeof(entry->name)) == 0U);
     entry->name[sizeof(entry->name) - 1U] = '\0';
     if (entry->name_too_long)
     {
@@ -532,27 +646,15 @@ static int8_t sdcard_compare_entry_names(const char *left, const char *right)
         uint8_t left_character = (uint8_t)sdcard_ascii_upper(*left);
         uint8_t right_character = (uint8_t)sdcard_ascii_upper(*right);
 
-        if (left_character < right_character)
-        {
-            return -1;
-        }
-        if (left_character > right_character)
-        {
-            return 1;
-        }
+        if (left_character < right_character) return -1;
+        if (left_character > right_character) return 1;
 
         left++;
         right++;
     }
 
-    if (*left != '\0')
-    {
-        return 1;
-    }
-    if (*right != '\0')
-    {
-        return -1;
-    }
+    if (*left != '\0') return 1;
+    if (*right != '\0') return -1;
     return 0;
 }
 
@@ -561,35 +663,21 @@ static int8_t sdcard_compare_entries(const sdcard_entry_t *left,
 {
     int8_t name_relation;
 
-    if (left->is_dir && !right->is_dir)
-    {
-        return -1;
-    }
-    if (!left->is_dir && right->is_dir)
-    {
-        return 1;
-    }
+    if (left->is_dir && !right->is_dir) return -1;
+    if (!left->is_dir && right->is_dir) return 1;
 
     name_relation = sdcard_compare_entry_names(left->name, right->name);
-    if (name_relation != 0)
-    {
-        return name_relation;
-    }
+    if (name_relation != 0) return name_relation;
 
     /* FAT permits combinations such as a long-file name and an 8.3 alias
        that compare equal here. Keep the browser order total and stable. */
-    if (left->source_index < right->source_index)
-    {
-        return -1;
-    }
-    if (left->source_index > right->source_index)
-    {
-        return 1;
-    }
+    if (left->source_index < right->source_index) return -1;
+    if (left->source_index > right->source_index) return 1;
     return 0;
 }
 
-static bool sdcard_open_directory_for_browser(const char *path, FsFile *directory)
+static bool sdcard_open_directory_for_browser(const char *path,
+                                              FsFile *directory)
 {
     if (path == NULL)
     {
@@ -620,6 +708,11 @@ static bool sdcard_open_directory_for_browser(const char *path, FsFile *director
         sdcard_set_error_P(PSTR("NOT DIR"));
         return false;
     }
+
+    /* A successful FAT directory open is stronger evidence than an older
+       transient CMD10 miss.  A following post-scan probe may start a new
+       suspicion if the card disappears immediately afterwards. */
+    sdcard_clear_soft_probe_failures();
     return true;
 }
 
@@ -629,6 +722,9 @@ static bool sdcard_finish_browser_directory_read(FsFile *directory)
     {
         directory->close();
     }
+
+    /* Retain software removal detection for boards without CARD DETECT, but a
+       single transient CID miss is now tolerated by sdcard_probe_present(). */
     return sdcard_probe_present();
 }
 
@@ -675,7 +771,8 @@ bool sdcard_scan_directory_first_sorted(const char *path,
         }
         count++;
 
-        if (!have_candidate || (sdcard_compare_entries(&current, &candidate) < 0))
+        if (!have_candidate ||
+            (sdcard_compare_entries(&current, &candidate) < 0))
         {
             candidate = current;
             have_candidate = true;
@@ -695,7 +792,7 @@ bool sdcard_scan_directory_first_sorted(const char *path,
         *first_entry = candidate;
     }
 
-    sdcard_set_error_P(PSTR("OK"));
+    sdcard_set_ok();
     return true;
 }
 
@@ -747,8 +844,10 @@ static bool sdcard_read_sorted_extreme(const char *path,
             }
             visited++;
             if (!have_candidate ||
-                ((want_last && (sdcard_compare_entries(&current, &candidate) > 0)) ||
-                 (!want_last && (sdcard_compare_entries(&current, &candidate) < 0))))
+                ((want_last &&
+                  (sdcard_compare_entries(&current, &candidate) > 0)) ||
+                 (!want_last &&
+                  (sdcard_compare_entries(&current, &candidate) < 0))))
             {
                 candidate = current;
                 have_candidate = true;
@@ -763,7 +862,7 @@ static bool sdcard_read_sorted_extreme(const char *path,
         if (have_candidate)
         {
             *entry = candidate;
-            sdcard_set_error_P(PSTR("OK"));
+            sdcard_set_ok();
             return true;
         }
 
@@ -849,7 +948,8 @@ bool sdcard_read_sorted_neighbor(const char *path,
         if (previous)
         {
             if ((relation < 0) &&
-                (!have_candidate || (sdcard_compare_entries(&current, &candidate) > 0)))
+                (!have_candidate ||
+                 (sdcard_compare_entries(&current, &candidate) > 0)))
             {
                 candidate = current;
                 have_candidate = true;
@@ -858,7 +958,8 @@ bool sdcard_read_sorted_neighbor(const char *path,
         else
         {
             if ((relation > 0) &&
-                (!have_candidate || (sdcard_compare_entries(&current, &candidate) < 0)))
+                (!have_candidate ||
+                 (sdcard_compare_entries(&current, &candidate) < 0)))
             {
                 candidate = current;
                 have_candidate = true;
@@ -879,7 +980,7 @@ bool sdcard_read_sorted_neighbor(const char *path,
     }
 
     *entry = candidate;
-    sdcard_set_error_P(PSTR("OK"));
+    sdcard_set_ok();
     return true;
 }
 
@@ -927,7 +1028,8 @@ bool sdcard_find_sorted_entry_by_identity(const char *path,
         }
         visited++;
 
-        if (!found && (current.is_dir == is_dir) && (strcmp(current.name, name) == 0))
+        if (!found && (current.is_dir == is_dir) &&
+            (strcmp(current.name, name) == 0))
         {
             matching_entry = current;
             found = true;
@@ -981,7 +1083,7 @@ bool sdcard_find_sorted_entry_by_identity(const char *path,
 
     *sorted_index = rank;
     *entry = matching_entry;
-    sdcard_set_error_P(PSTR("OK"));
+    sdcard_set_ok();
     return true;
 }
 
@@ -1013,7 +1115,8 @@ bool sdcard_file_open_read(const char *path)
         return false;
     }
 
-    sdcard_set_error_P(PSTR("OK"));
+    sdcard_clear_soft_probe_failures();
+    sdcard_set_ok();
     return true;
 }
 
@@ -1045,7 +1148,8 @@ bool sdcard_file_open_write(const char *path)
         return false;
     }
 
-    sdcard_set_error_P(PSTR("OK"));
+    sdcard_clear_soft_probe_failures();
+    sdcard_set_ok();
     return true;
 }
 
@@ -1083,7 +1187,8 @@ static bool sdcard_parse_record_sequence(const char *name, uint16_t *sequence)
         {
             return false;
         }
-        value = (uint16_t)(value * 10U + (uint16_t)(name[index] - '0'));
+        value = (uint16_t)(value * 10U +
+                           (uint16_t)(name[index] - '0'));
     }
 
     valid_extension =
@@ -1156,7 +1261,8 @@ bool sdcard_ensure_directory(const char *directory_path)
     }
 
     directory.close();
-    sdcard_set_error_P(PSTR("OK"));
+    sdcard_clear_soft_probe_failures();
+    sdcard_set_ok();
     return true;
 }
 
@@ -1178,9 +1284,15 @@ bool sdcard_next_record_sequence(const char *directory_path,
         {
             directory.close();
         }
+        if (!sdcard_probe_present())
+        {
+            return false;
+        }
         sdcard_set_error_P(PSTR("DIR FAIL"));
         return false;
     }
+
+    sdcard_clear_soft_probe_failures();
 
     while (entry.openNext(&directory, O_RDONLY))
     {
@@ -1214,7 +1326,7 @@ bool sdcard_next_record_sequence(const char *directory_path,
     }
 
     *next_sequence = (uint16_t)(highest + 1U);
-    sdcard_set_error_P(PSTR("OK"));
+    sdcard_set_ok();
     return true;
 }
 
@@ -1238,7 +1350,13 @@ int16_t sdcard_file_read(void *buffer, uint16_t size)
 
     if (result < 0)
     {
-        sdcard_set_card_error();
+        /* A real read failure plus repeated failed software probes is required
+           before the whole card is declared missing. */
+        if (!sdcard_probe_present())
+        {
+            return -1;
+        }
+        sdcard_set_error_P(PSTR("FILE READ FAIL"));
         return -1;
     }
 
@@ -1253,6 +1371,8 @@ int16_t sdcard_file_read(void *buffer, uint16_t size)
         return -1;
     }
 
+    /* Successful stream traffic is also strong evidence that the card lives. */
+    sdcard_clear_soft_probe_failures();
     return (int16_t)result;
 }
 
@@ -1284,12 +1404,19 @@ int16_t sdcard_file_write(const void *buffer, uint16_t size)
         return -1;
     }
 
+    /* Do not leave one old transient CMD10 miss armed during a long recording. */
+    sdcard_clear_soft_probe_failures();
     return (int16_t)result;
 }
 
 bool sdcard_file_preallocate(uint32_t length)
 {
-    if ((length == 0UL) || !sdcard_mounted || !sdcard_stream_file.isOpen())
+    if (length == 0UL)
+    {
+        sdcard_set_error_P(PSTR("BAD ARG"));
+        return false;
+    }
+    if (!sdcard_mounted || !sdcard_stream_file.isOpen())
     {
         sdcard_set_card_error();
         return false;
@@ -1305,7 +1432,8 @@ bool sdcard_file_preallocate(uint32_t length)
         return false;
     }
 
-    sdcard_set_error_P(PSTR("OK"));
+    sdcard_clear_soft_probe_failures();
+    sdcard_set_ok();
     return true;
 }
 
@@ -1327,7 +1455,8 @@ bool sdcard_file_truncate(uint32_t length)
         return false;
     }
 
-    sdcard_set_error_P(PSTR("OK"));
+    sdcard_clear_soft_probe_failures();
+    sdcard_set_ok();
     return true;
 }
 
@@ -1364,6 +1493,8 @@ bool sdcard_file_sync(void)
         return false;
     }
 
+    sdcard_clear_soft_probe_failures();
+    sdcard_set_ok();
     return true;
 }
 
@@ -1385,6 +1516,7 @@ bool sdcard_file_seek(uint32_t position)
         return false;
     }
 
+    sdcard_clear_soft_probe_failures();
     return true;
 }
 
@@ -1431,7 +1563,8 @@ bool sdcard_file_remove(const char *path)
         return false;
     }
 
-    sdcard_set_error_P(PSTR("OK"));
+    sdcard_clear_soft_probe_failures();
+    sdcard_set_ok();
     return true;
 }
 
@@ -1458,7 +1591,8 @@ bool sdcard_file_rename(const char *old_path, const char *new_path)
         return false;
     }
 
-    sdcard_set_error_P(PSTR("OK"));
+    sdcard_clear_soft_probe_failures();
+    sdcard_set_ok();
     return true;
 }
 
