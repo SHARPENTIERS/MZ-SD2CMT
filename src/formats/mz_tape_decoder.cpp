@@ -2,7 +2,6 @@
 
 #include <stddef.h>
 
-#define DECODER_COUNT 2U
 #define MIN_LEADER_PULSES 16U
 #define MIN_MARK_PULSES 12U
 #define MAX_MARK_PULSES 48U
@@ -59,16 +58,11 @@ typedef struct
 } pulse_decoder_t;
 
 static decoder_mode_t decoder_mode = DECODER_MODE_STOPPED;
-static pulse_decoder_t decoders[DECODER_COUNT];
-static uint8_t header_buffers[DECODER_COUNT][MZ_TAPE_HEADER_BYTES];
+static pulse_decoder_t decoder;
+static uint8_t header_buffer[MZ_TAPE_HEADER_BYTES];
+static uint8_t data_scratch[MZ_TAPE_HEADER_BYTES];
 static const uint8_t *validated_header = NULL;
 static uint16_t validated_short_x8 = 0U;
-static uint8_t header_start_level = 0U;
-static uint8_t selected_start_level = 0U;
-static bool selected_level_valid = false;
-static bool have_previous_half = false;
-static uint16_t previous_half_units = 0U;
-static uint8_t previous_half_level = 0U;
 static mz_tape_decoder_event_t pending_event;
 
 static uint8_t popcount8(uint8_t value)
@@ -82,11 +76,11 @@ static uint8_t popcount8(uint8_t value)
     return count;
 }
 
-static void reset_candidate(pulse_decoder_t *decoder, uint16_t seed_units)
+static void reset_decoder(pulse_decoder_t *decoder, uint16_t seed_units)
 {
     if (decoder == NULL) return;
     decoder->state = DECODE_SEARCH_LEADER;
-    decoder->short_x8 = (seed_units <= (MAX_HALF_UNITS * 2U)) ?
+    decoder->short_x8 = (seed_units <= MAX_HALF_UNITS) ?
         (uint16_t)(seed_units * 8U) : 0U;
     decoder->leader_pulses = (decoder->short_x8 != 0U) ? 1U : 0U;
     decoder->mark_pulses = 0U;
@@ -111,9 +105,9 @@ static void reset_candidate(pulse_decoder_t *decoder, uint16_t seed_units)
    Using one difference and one tolerance removes low/high arithmetic and extra
    comparisons without changing a single decision or the exact 1/8 IIR update.
 
-   Real Normal leaders use the 8-bit branch: short_x8 <= 204 and full-pulse
-   duration <= 31 units.  Malformed, slow or otherwise wider input falls back
-   to the exact 16-bit path. */
+   Real Normal leaders use the 8-bit branch: short_x8 <= 204 and decisive
+   logical-HIGH duration <= 31 units. Malformed, slow or otherwise wider input
+   falls back to the exact 16-bit path. */
 static inline __attribute__((always_inline))
 bool accept_leader_pulse(pulse_decoder_t *decoder, uint16_t duration_units)
 {
@@ -227,8 +221,8 @@ static int8_t classify_pulse(const pulse_decoder_t *decoder,
     scaled = (uint16_t)(duration_units << 3U);
     average = decoder->short_x8;
 
-    /* These original range tests are safe in 16 bits for the complete allowed
-       decoder domain: scaled <= 16384 and average <= 16384. */
+    /* These range tests are safe in 16 bits for the complete allowed
+       half-wave domain: scaled <= 8192 and average <= 8192. */
     if (((uint16_t)(scaled << 1U) < average) ||
         (scaled > (uint16_t)(average + average + average)))
     {
@@ -282,9 +276,7 @@ static void begin_duplicate_gap(pulse_decoder_t *decoder,
     decoder->copy_index = 1U;
 }
 
-static void accept_byte(pulse_decoder_t *decoder,
-                        uint8_t decoder_index,
-                        uint8_t value)
+static void accept_byte(pulse_decoder_t *decoder, uint8_t value)
 {
     uint32_t index = decoder->byte_index;
 
@@ -293,7 +285,7 @@ static void accept_byte(pulse_decoder_t *decoder,
         decoder->checksum = (uint16_t)(decoder->checksum + popcount8(value));
         if (decoder_mode == DECODER_MODE_HEADER)
         {
-            header_buffers[decoder_index][(uint8_t)index] = value;
+            header_buffer[(uint8_t)index] = value;
         }
         else
         {
@@ -315,18 +307,15 @@ static void accept_byte(pulse_decoder_t *decoder,
         {
             if (valid)
             {
-                validated_header = header_buffers[decoder_index];
+                validated_header = header_buffer;
                 validated_short_x8 = decoder->short_x8;
-                header_start_level = decoder_index;
-                selected_start_level = decoder_index;
-                selected_level_valid = true;
                 decoder_mode = DECODER_MODE_STOPPED;
                 publish_event(MZ_TAPE_DECODER_EVENT_HEADER_VALID, 0U, 0UL,
                               decoder);
                 return;
             }
             /* Native MZ700 repeats the block without a new leader/mark.  Keep
-               this candidate's calibrated short period and wait for the
+               the calibrated short interval and wait for the
                documented 256-short separator. */
             begin_duplicate_gap(decoder, MZ_TAPE_HEADER_BYTES);
             return;
@@ -340,7 +329,6 @@ static void accept_byte(pulse_decoder_t *decoder,
 }
 
 static void accept_data_pulse(pulse_decoder_t *decoder,
-                              uint8_t decoder_index,
                               uint8_t pulse_class)
 {
     if (decoder->bit_count < 8U)
@@ -352,17 +340,15 @@ static void accept_data_pulse(pulse_decoder_t *decoder,
     }
     if (pulse_class != 1U)
     {
-        reset_candidate(decoder, 0U);
+        reset_decoder(decoder, 0U);
         return;
     }
-    accept_byte(decoder, decoder_index, decoder->byte_value);
+    accept_byte(decoder, decoder->byte_value);
     decoder->byte_value = 0U;
     decoder->bit_count = 0U;
 }
 
-static void feed_pulse(pulse_decoder_t *decoder,
-                       uint8_t decoder_index,
-                       uint16_t duration_units)
+static void feed_pulse(pulse_decoder_t *decoder, uint16_t duration_units)
 {
     int8_t pulse_class;
 
@@ -386,7 +372,7 @@ static void feed_pulse(pulse_decoder_t *decoder,
         }
         else
         {
-            reset_candidate(decoder, duration_units);
+            reset_decoder(decoder, duration_units);
         }
         return;
     }
@@ -394,7 +380,7 @@ static void feed_pulse(pulse_decoder_t *decoder,
     {
         if (decoder->short_x8 == 0U)
         {
-            reset_candidate(decoder, duration_units);
+            reset_decoder(decoder, duration_units);
             return;
         }
 
@@ -425,14 +411,14 @@ static void feed_pulse(pulse_decoder_t *decoder,
             decoder->mark_pulses = 1U;
             return;
         }
-        reset_candidate(decoder, duration_units);
+        reset_decoder(decoder, duration_units);
         return;
     }
 
     pulse_class = classify_pulse(decoder, duration_units);
     if (pulse_class < 0)
     {
-        reset_candidate(decoder, duration_units);
+        reset_decoder(decoder, duration_units);
         return;
     }
     if (decoder->state == DECODE_MARK_LONG)
@@ -449,7 +435,7 @@ static void feed_pulse(pulse_decoder_t *decoder,
             decoder->mark_pulses = 1U;
             return;
         }
-        reset_candidate(decoder, duration_units);
+        reset_decoder(decoder, duration_units);
         return;
     }
     if (decoder->state == DECODE_MARK_SHORT)
@@ -466,14 +452,14 @@ static void feed_pulse(pulse_decoder_t *decoder,
             decoder->final_pulses = 1U;
             return;
         }
-        reset_candidate(decoder, duration_units);
+        reset_decoder(decoder, duration_units);
         return;
     }
     if (decoder->state == DECODE_MARK_FINAL)
     {
         if (pulse_class != 1)
         {
-            reset_candidate(decoder, duration_units);
+            reset_decoder(decoder, duration_units);
             return;
         }
         decoder->final_pulses++;
@@ -483,7 +469,7 @@ static void feed_pulse(pulse_decoder_t *decoder,
         }
         return;
     }
-    accept_data_pulse(decoder, decoder_index, (uint8_t)pulse_class);
+    accept_data_pulse(decoder, (uint8_t)pulse_class);
 }
 
 void mz_tape_decoder_begin_header(void)
@@ -491,84 +477,58 @@ void mz_tape_decoder_begin_header(void)
     decoder_mode = DECODER_MODE_HEADER;
     validated_header = NULL;
     validated_short_x8 = 0U;
-    selected_level_valid = false;
-    have_previous_half = false;
-    previous_half_units = 0U;
     pending_event.type = MZ_TAPE_DECODER_EVENT_NONE;
-    for (uint8_t i = 0U; i < DECODER_COUNT; ++i)
-    {
-        decoders[i].expected_bytes = MZ_TAPE_HEADER_BYTES;
-        reset_candidate(&decoders[i], 0U);
-    }
+    decoder.expected_bytes = MZ_TAPE_HEADER_BYTES;
+    reset_decoder(&decoder, 0U);
 }
 
-void mz_tape_decoder_start_data(uint32_t byte_count, bool invert_pulse_phase)
+void mz_tape_decoder_start_data(uint32_t byte_count)
 {
-    uint8_t index;
-
-    if (!selected_level_valid || (byte_count > 65535UL))
+    if ((validated_header == NULL) || (byte_count > 65535UL))
     {
         decoder_mode = DECODER_MODE_STOPPED;
         return;
     }
-    /* The inversion is always relative to the validated header.  This keeps
-       repeated block starts deterministic (TC changes physical phase once,
-       while NORMAL/IC retain it). */
-    index = (uint8_t)(header_start_level ^ (invert_pulse_phase ? 1U : 0U));
-    selected_start_level = index;
     decoder_mode = DECODER_MODE_DATA;
-    have_previous_half = false;
-    previous_half_units = 0U;
     pending_event.type = MZ_TAPE_DECODER_EVENT_NONE;
-    decoders[index].expected_bytes = byte_count;
-    reset_candidate(&decoders[index], 0U);
+    decoder.expected_bytes = byte_count;
+    reset_decoder(&decoder, 0U);
 }
 
 void mz_tape_decoder_start_recovery_data(uint32_t byte_count)
 {
-    uint8_t index = selected_start_level;
-    if (!selected_level_valid || (byte_count > 65535UL))
+    if ((validated_header == NULL) || (byte_count > 65535UL))
     {
         decoder_mode = DECODER_MODE_STOPPED;
         return;
     }
     decoder_mode = DECODER_MODE_DATA;
-    have_previous_half = false;
-    previous_half_units = 0U;
     pending_event.type = MZ_TAPE_DECODER_EVENT_NONE;
-    begin_duplicate_gap(&decoders[index], byte_count);
+    begin_duplicate_gap(&decoder, byte_count);
 }
 
 void mz_tape_decoder_break_signal(void)
 {
-    have_previous_half = false;
-    previous_half_units = 0U;
     if (decoder_mode == DECODER_MODE_HEADER)
     {
-        for (uint8_t i = 0U; i < DECODER_COUNT; ++i)
-        {
-            decoders[i].expected_bytes = MZ_TAPE_HEADER_BYTES;
-            reset_candidate(&decoders[i], 0U);
-        }
+        decoder.expected_bytes = MZ_TAPE_HEADER_BYTES;
+        reset_decoder(&decoder, 0U);
     }
-    else if ((decoder_mode == DECODER_MODE_DATA) && selected_level_valid)
+    else if ((decoder_mode == DECODER_MODE_DATA) &&
+             (validated_header != NULL))
     {
-        reset_candidate(&decoders[selected_start_level], 0U);
+        reset_decoder(&decoder, 0U);
     }
 }
 
 void mz_tape_decoder_stop(void)
 {
     decoder_mode = DECODER_MODE_STOPPED;
-    have_previous_half = false;
     pending_event.type = MZ_TAPE_DECODER_EVENT_NONE;
 }
 
 bool mz_tape_decoder_feed_interval(uint16_t duration_units, uint8_t level)
 {
-    uint16_t pulse_units;
-    uint8_t pair_start_level;
-
     if (decoder_mode == DECODER_MODE_STOPPED) return false;
     level = level ? 1U : 0U;
     if ((duration_units == 0U) || (duration_units > MAX_HALF_UNITS))
@@ -576,49 +536,38 @@ bool mz_tape_decoder_feed_interval(uint16_t duration_units, uint8_t level)
         mz_tape_decoder_break_signal();
         return false;
     }
-    if (!have_previous_half)
-    {
-        previous_half_units = duration_units;
-        previous_half_level = level;
-        have_previous_half = true;
-        return false;
-    }
-    if (level == previous_half_level)
-    {
-        mz_tape_decoder_break_signal();
-        previous_half_units = duration_units;
-        previous_half_level = level;
-        have_previous_half = true;
-        return false;
-    }
 
-    pulse_units = (uint16_t)(previous_half_units + duration_units);
-    pair_start_level = previous_half_level;
-    if ((decoder_mode == DECODER_MODE_HEADER) ||
-        (selected_level_valid && (pair_start_level == selected_start_level)))
-    {
-        pulse_decoder_t *decoder = &decoders[pair_start_level];
+    /*
+       Input level is the physical external-CMT/MCU WRITE level.  Sharp's
+       interface inverts that signal, so physical WRITE LOW is logical PC1/PC5
+       HIGH: the receiver-relevant half-wave measured from the detected PC5
+       rising edge to its later decision sample.  Decode that one level only.
 
-        /* Sustained frozen-leader direct path.  feed_pulse() would do exactly
-           these state/bound checks before returning, so perform them here and
-           avoid the function call plus its generic state dispatch on every
-           locked Normal leader pulse.  A pulse outside the frozen window falls
-           through to feed_pulse() on the same interval so MARK detection and
-           all recovery behaviour remain unchanged. */
-        if ((decoder->state == DECODE_SEARCH_LEADER) &&
-            (decoder->final_pulses != 0U) &&
-            (pulse_units >= decoder->mark_pulses) &&
-            (pulse_units <= decoder->final_pulses))
-        {
-            if (decoder->leader_pulses != 0xFFFFU) decoder->leader_pulses++;
-        }
-        else
-        {
-            feed_pulse(decoder, pair_start_level, pulse_units);
-        }
+       The opposite polarity is deliberately not tried.  External WAV polarity
+       is corrected explicitly by INVERT SIG. before physical playback; live
+       RECORD has the fixed hardware mapping above.  A symmetric leader cannot
+       reliably determine polarity, so checksum fallback or dual candidates
+       here would silently defeat that explicit contract.
+    */
+    if (level != 0U) return false;
+
+    /* Sustained frozen-leader direct path.  feed_pulse() would do exactly
+       these state/bound checks before returning, so perform them here and
+       avoid the function call plus its generic state dispatch on every
+       locked Normal leader pulse.  A pulse outside the frozen window falls
+       through to feed_pulse() on the same interval so MARK detection and all
+       recovery behaviour remain unchanged. */
+    if ((decoder.state == DECODE_SEARCH_LEADER) &&
+        (decoder.final_pulses != 0U) &&
+        (duration_units >= decoder.mark_pulses) &&
+        (duration_units <= decoder.final_pulses))
+    {
+        if (decoder.leader_pulses != 0xFFFFU) decoder.leader_pulses++;
     }
-    previous_half_units = duration_units;
-    previous_half_level = level;
+    else
+    {
+        feed_pulse(&decoder, duration_units);
+    }
     return pending_event.type != MZ_TAPE_DECODER_EVENT_NONE;
 }
 
@@ -638,17 +587,10 @@ const uint8_t *mz_tape_decoder_get_header(void)
 
 uint8_t *mz_tape_decoder_get_data_scratch(void)
 {
-    if (!selected_level_valid || (selected_start_level >= DECODER_COUNT))
-        return NULL;
-    return header_buffers[selected_start_level ^ 1U];
+    return (validated_header != NULL) ? data_scratch : NULL;
 }
 
-uint8_t mz_tape_decoder_get_pulse_start_level(void)
-{
-    return selected_start_level;
-}
-
-uint16_t mz_tape_decoder_get_header_short_x8(void)
+uint16_t mz_tape_decoder_get_header_short_high_x8(void)
 {
     return validated_short_x8;
 }

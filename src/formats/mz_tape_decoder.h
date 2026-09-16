@@ -27,18 +27,18 @@ typedef struct
 } mz_tape_decoder_event_t;
 
 void mz_tape_decoder_begin_header(void);
-void mz_tape_decoder_start_data(uint32_t byte_count, bool invert_pulse_phase);
+void mz_tape_decoder_start_data(uint32_t byte_count);
 void mz_tape_decoder_start_recovery_data(uint32_t byte_count);
 void mz_tape_decoder_break_signal(void);
 void mz_tape_decoder_stop(void);
-/* Returns true only when this interval produced a pending decoder event.
-   The foreground caller can therefore skip an empty take_event() poll on the
-   leader hot path. */
+/* level is the physical external-CMT/MCU WRITE level. Sharp decoding uses
+   physical LOW only; the function never probes or falls back to HIGH polarity.
+   Returns true only when this interval produced a pending decoder event, so
+   the foreground caller can skip an empty take_event() poll on the leader. */
 bool mz_tape_decoder_feed_interval(uint16_t duration_units, uint8_t level);
 bool mz_tape_decoder_take_event(mz_tape_decoder_event_t *event);
 const uint8_t *mz_tape_decoder_get_header(void);
 uint8_t *mz_tape_decoder_get_data_scratch(void);
-uint8_t mz_tape_decoder_get_pulse_start_level(void);
-uint16_t mz_tape_decoder_get_header_short_x8(void);
+uint16_t mz_tape_decoder_get_header_short_high_x8(void);
 
 #endif

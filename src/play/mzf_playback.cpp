@@ -50,9 +50,10 @@
    ROM800 LOW context: leader S=258.819; mark S/L=256.000/487.189;
    data S->S/S->L=255.436/252.617, L->S/L->L=486.626/483.806 us.
    NRL1:2..1:4 come from Intercopy routines; TC timing comes from Turbo Copy
-   analysis. Polarity is stage-specific: NRL/MZ700/UL and IC header are H->L;
-   IC data and every TC stage are L->H. Timer3 rounds these source values to
-   the nearest 16 MHz tick (0.0625 us); constants below are actual.
+   analysis. All H/L values describe the logical Sharp/MZ 8255-side waveform.
+   Timer3 maps logical HIGH to connector READ LOW and logical LOW to connector
+   READ HIGH, compensating the fixed external inverter without exchanging the
+   two durations. Values are rounded to the nearest 16 MHz tick (0.0625 us).
 */
 #define MZF_TICKS_PER_US ((uint16_t)(F_CPU / 1000000UL))
 #define MZF_US_TO_TICKS(us) ((uint16_t)((uint32_t)(us) * MZF_TICKS_PER_US))
@@ -215,10 +216,6 @@ static uint8_t mzf_profile_data_mark_short = MZF_MZ800_SHORT_MARK_SHORT_PULSES;
 static uint8_t mzf_profile_final_mark_long = MZF_MZ800_TAPE_MARK_FINAL_LONG_PULSES;
 static uint16_t mzf_profile_duplicate_gap = 0U;
 
-/* MZF ignores the UI WAV invert setting. TC turbo uses the opposite READ
-   phase; IC and native/UL modes use direct polarity. */
-static bool mzf_wave_invert_signal = false;
-
 /* PLAY and RECORD never overlap. During MZF playback the second RECORD
    staging sector is idle, so its first 128 bytes hold the active header. */
 #define mzf_header cmt_mode_scratch.edge_record_stage_bytes
@@ -264,7 +261,6 @@ static volatile bool mzf_native_repeat_refill_ready = false;
 static volatile bool mzf_boundary_waiting = false;
 static volatile uint8_t mzf_motor_low_seen = 0U;
 static bool mzf_paused_mid_pulse = false;
-static bool mzf_pwm_low_first = false;
 static bool mzf_pwm_bootstrap_pending = false;
 static bool mzf_pwm_stop_pending = false;
 static bool mzf_pwm_next_valid = false;
@@ -356,18 +352,30 @@ static void mzf_stop_timer_from_foreground(bool force_low)
     monitor_disable();
 }
 
-static uint16_t mzf_pwm_compare_ticks(uint16_t high_ticks,
-                                      uint16_t low_ticks)
+/*
+    The profile is always logical HIGH followed by logical LOW. Sharp hardware
+    inverts external READ before PC5, so Timer3 always emits connector LOW for
+    logical_high_ticks, followed by connector HIGH for logical_low_ticks.
+*/
+static constexpr uint16_t mzf_pwm_compare_ticks(
+    uint16_t logical_high_ticks,
+    uint16_t /* logical_low_ticks */)
 {
-    uint16_t compare = mzf_pwm_low_first ? low_ticks : high_ticks;
-    return (compare == 0U) ? 1U : compare;
+    return (logical_high_ticks == 0U) ? 1U : logical_high_ticks;
 }
 
-static void mzf_pwm_write_next_from_isr(uint16_t high_ticks,
-                                        uint16_t low_ticks)
+static_assert(mzf_pwm_compare_ticks(10U, 20U) == 10U,
+              "logical HIGH must own the first connector LOW duration");
+static_assert(mzf_pwm_compare_ticks(10U, 20U) != 20U,
+              "connector inversion must not exchange H/L durations");
+
+static void mzf_pwm_write_next_from_isr(uint16_t logical_high_ticks,
+                                         uint16_t logical_low_ticks)
 {
-    uint16_t total_ticks = (uint16_t)(high_ticks + low_ticks);
-    uint16_t compare_ticks = mzf_pwm_compare_ticks(high_ticks, low_ticks);
+    uint16_t total_ticks =
+        (uint16_t)(logical_high_ticks + logical_low_ticks);
+    uint16_t compare_ticks =
+        mzf_pwm_compare_ticks(logical_high_ticks, logical_low_ticks);
 
     if (total_ticks < 2U) total_ticks = 2U;
     OCR3A = (uint16_t)(total_ticks - 1U);
@@ -382,16 +390,15 @@ static void mzf_pwm_write_next_from_isr(uint16_t high_ticks,
     boundary.  Both physical READ edges are therefore produced by Timer3;
     software only prepares a later complete pulse.
 */
-static void mzf_pwm_start_first_from_isr(uint16_t high_ticks,
-                                         uint16_t low_ticks,
-                                         bool physical_low_first)
+static void mzf_pwm_start_first_from_isr(uint16_t logical_high_ticks,
+                                         uint16_t logical_low_ticks)
 {
-    uint16_t total_ticks = (uint16_t)(high_ticks + low_ticks);
-    uint8_t com_bits;
+    uint16_t total_ticks =
+        (uint16_t)(logical_high_ticks + logical_low_ticks);
 
     if (total_ticks < 2U) total_ticks = 2U;
-    mzf_pwm_low_first = physical_low_first;
-    mzf_pwm_current_compare_ticks = mzf_pwm_compare_ticks(high_ticks, low_ticks);
+    mzf_pwm_current_compare_ticks =
+        mzf_pwm_compare_ticks(logical_high_ticks, logical_low_ticks);
     mzf_pwm_next_compare_ticks = 1U;
     mzf_pwm_next_valid = false;
     mzf_pwm_bootstrap_pending = true;
@@ -408,12 +415,12 @@ static void mzf_pwm_start_first_from_isr(uint16_t high_ticks,
     TCNT3 = OCR3A;
     TIFR3 = (uint8_t)(_BV(OCF3B) | _BV(TOV3));
 
-    mz_read_set_fast_from_isr(physical_low_first ? 0U : 1U);
-    com_bits = (uint8_t)(_BV(COM3B1) |
-                         (physical_low_first ? _BV(COM3B0) : 0U));
+    mz_read_set_fast_from_isr(0U);
     timer3b_owner_set_from_isr(TIMER3B_OWNER_MZF);
     monitor_set_tape_activity_from_isr(true);
-    TCCR3A = (uint8_t)(com_bits | _BV(WGM31) | _BV(WGM30));
+    /* Inverting Fast PWM: clear OC3B at BOTTOM, set it at compare. */
+    TCCR3A = (uint8_t)(_BV(COM3B1) | _BV(COM3B0) |
+                       _BV(WGM31) | _BV(WGM30));
     TIMSK3 |= _BV(OCIE3B);
     TCCR3B = (uint8_t)(_BV(WGM33) | _BV(WGM32) | _BV(CS30));
 }
@@ -464,8 +471,7 @@ static void mzf_pwm_pause_from_foreground(void)
     {
         counter = TCNT3;
         first_phase = counter < mzf_pwm_current_compare_ticks;
-        mzf_pwm_paused_resume_level = mzf_pwm_low_first ?
-            (first_phase ? 0U : 1U) : (first_phase ? 1U : 0U);
+        mzf_pwm_paused_resume_level = first_phase ? 0U : 1U;
         mzf_pwm_paused_com_connected =
             (TCCR3A & _BV(COM3B1)) != 0U;
 
@@ -489,8 +495,7 @@ static void mzf_pwm_resume_from_foreground(void)
     {
         if (mzf_pwm_paused_com_connected)
         {
-            com_bits = (uint8_t)(_BV(COM3B1) |
-                       (mzf_pwm_low_first ? _BV(COM3B0) : 0U));
+            com_bits = (uint8_t)(_BV(COM3B1) | _BV(COM3B0));
         }
 
         timer3b_owner_set_from_isr(TIMER3B_OWNER_MZF);
@@ -1245,13 +1250,6 @@ static bool mzf_stage_uses_tape_turbo_timing(void)
     return mzf_stage == MZF_STAGE_TAPE_TURBO_DATA;
 }
 
-static bool mzf_stage_uses_low_first_timing(void)
-{
-    /* MZ-800 IC loaders use LOW-first timing; MZ-700 FAST3 uses HIGH-first
-       timing for each generated pulse. */
-    return mzf_stage_uses_tape_turbo_timing() && mzf_loader_is_ic_turbo();
-}
-
 static uint16_t mzf_boundary_auto_continue_ms(void)
 {
     if (((mzf_stage == MZF_STAGE_HEADER) &&
@@ -1942,11 +1940,6 @@ static bool mzf_queue_next_pwm_pulse_from_isr(void)
     return true;
 }
 
-static bool mzf_physical_low_first(void)
-{
-    return mzf_stage_uses_low_first_timing() != mzf_wave_invert_signal;
-}
-
 static bool mzf_start_normal_output_immediate(void)
 {
     uint16_t high_ticks;
@@ -1956,8 +1949,7 @@ static bool mzf_start_normal_output_immediate(void)
     {
         if (mzf_next_normal_pulse_from_isr(&high_ticks, &low_ticks))
         {
-            mzf_pwm_start_first_from_isr(high_ticks, low_ticks,
-                                         mzf_physical_low_first());
+            mzf_pwm_start_first_from_isr(high_ticks, low_ticks);
         }
     }
     return (mzf_state == MZF_PLAYBACK_RUNNING) && !mzf_boundary_waiting;
@@ -2290,7 +2282,6 @@ static bool mzf_prepare_current_record(loader_mode_t loader_mode)
         loader_mode = LOADER_MODE_NORMAL_1_1;
     }
 
-    mzf_wave_invert_signal = false;
     mzf_configure_normal_speed(loader_mode);
     mzf_original_data_offset = sdcard_file_position();
     mzf_original_data_length = mzf_record_data_length;
@@ -2313,7 +2304,6 @@ static bool mzf_prepare_current_record(loader_mode_t loader_mode)
                                        mzf_original_data_offset);
     if (loader_active)
     {
-        mzf_wave_invert_signal = mzf_loader_is_tc_turbo();
         if (!mzf_loader_patch_loader_header(mzf_header))
         {
             mzf_set_error_P(PSTR("LDR HEADER"), MZF_PLAYBACK_BAD_FILE);
@@ -2640,7 +2630,6 @@ static void mzf_service_boundary_auto_continue(void)
 void mzf_playback_init(void)
 {
     mzf_stop_timer_from_foreground(true);
-    mzf_wave_invert_signal = false;
     mzf_state = MZF_PLAYBACK_STOPPED;
     mzf_error_text[0] = '\0';
     mzf_format = FILE_FORMAT_UNKNOWN;
@@ -2670,7 +2659,6 @@ void mzf_playback_init(void)
     mzf_fast3_start_delay_armed = false;
     mzf_fast3_start_delay_started_ms = 0U;
     mzf_paused_mid_pulse = false;
-    mzf_pwm_low_first = false;
     mzf_pwm_bootstrap_pending = false;
     mzf_pwm_stop_pending = false;
     mzf_pwm_next_valid = false;
@@ -2696,8 +2684,6 @@ bool mzf_playback_prepare(const char *path,
 
     mzf_playback_stop();
     mzf_error_text[0] = '\0';
-    mzf_wave_invert_signal = false;
-
     if ((path == NULL) || !file_format_is_sharp_tape(format))
     {
         mzf_set_error_P(PSTR("MZF ARG"), MZF_PLAYBACK_BAD_FILE);
@@ -2875,7 +2861,6 @@ void mzf_playback_stop(void)
     mzf_fast3_start_delay_armed = false;
     mzf_fast3_start_delay_started_ms = 0U;
     mzf_paused_mid_pulse = false;
-    mzf_pwm_low_first = false;
     mzf_pwm_bootstrap_pending = false;
     mzf_pwm_stop_pending = false;
     mzf_pwm_next_valid = false;
@@ -2894,7 +2879,6 @@ void mzf_playback_stop(void)
     mzf_mzt_record_title[0] = '\0';
     mzf_file_size = 0UL;
     mzf_total_duration_ms = 0UL;
-    mzf_wave_invert_signal = false;
     mzf_configure_normal_speed(LOADER_MODE_NORMAL_1_1);
     mzf_record_data_length = 0UL;
     mzf_record_data_file_end = 0UL;

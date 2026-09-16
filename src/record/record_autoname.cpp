@@ -40,14 +40,15 @@
 
 /*
    A fast native Sharp leader is distinctive enough to stop the parallel AUX
-   Sinclair/CM/CMT search early.  The probe is deliberately tiny: it only
-   pairs physical half intervals into full pulses and asks for a long stable
-   run before locking AUX.  256 pulses are still only a few tens of ms at
-   Normal 1:2..1:4, but reject short accidental tones very strongly.
+   Sinclair/CM/CMT search early.  Like the main Sharp decoder, this probe uses
+   only physical WRITE LOW (logical PC1 HIGH after the external inverter).
+   It never pairs both polarities or tries the opposite level.  256 intervals
+   are still only a few tens of ms at Normal 1:2..1:4, but reject short
+   accidental tones very strongly.
 */
 #define AUTONAME_MZ_FAST_LOCK_PULSES 256U
-#define AUTONAME_MZ_FAST_MIN_X8 64U
-#define AUTONAME_MZ_FAST_MAX_X8 190U
+#define AUTONAME_MZ_FAST_MIN_X8 32U
+#define AUTONAME_MZ_FAST_MAX_X8 80U
 
 /* WAV AutoName converts sample-run lengths to the decoder's L16*8 time
    reference. Cache the fixed-point conversion once at begin() so the hot
@@ -63,7 +64,6 @@ static char autoname_name[AUTONAME_NAME_BYTES + 1U];
 static bool autoname_sample_active = false;
 static uint8_t autoname_sample_level = 0U;
 static uint16_t autoname_sample_run = 0U;
-static uint8_t autoname_implicit_level = 0U;
 
 /* Metadata tracking supplies the optional AUTONAME record display. */
 static bool metadata_active = false;
@@ -79,10 +79,7 @@ static bool metadata_tc_pending = false;
 static record_autoname_aux_profile_t metadata_aux_profile =
     RECORD_AUTONAME_AUX_PROFILE_NONE;
 
-/* Lightweight native-MZ leader probe used only until AUX can be locked. */
-static bool mz_fast_have_half = false;
-static uint16_t mz_fast_half_units = 0U;
-static uint8_t mz_fast_half_level = 0U;
+/* Lightweight single-polarity native-MZ leader probe used until AUX locks. */
 static uint16_t mz_fast_reference_x8 = 0U;
 static uint16_t mz_fast_stable_pulses = 0U;
 static bool mz_fast_reference_checked = false;
@@ -221,23 +218,23 @@ static bool autoname_aux_payload_mode(void)
            (metadata_aux_profile != RECORD_AUTONAME_AUX_PROFILE_NONE);
 }
 
-/* Convert a calibrated MZ full-short-pulse period to the common 16 us * 8
-   reference.  This is shared by final speed classification and by the cheap
-   fast-leader AUX lock test; the latter calls it only once per stable run. */
-static uint16_t metadata_normalize_mz_short_x8(uint16_t short_x8)
+/* Convert a calibrated logical-HIGH/physical-LOW short interval to the common
+   16 us * 8 reference.  This is shared by final speed classification and by
+   the cheap fast-leader AUX lock test; the latter calls it once per run. */
+static uint16_t metadata_normalize_mz_short_high_x8(uint16_t short_high_x8)
 {
-    uint32_t normalized = short_x8;
+    uint32_t normalized = short_high_x8;
 
     if ((metadata_format == FILE_FORMAT_WAV) &&
         (metadata_wav_sample_rate != 0U))
     {
-        normalized = ((uint32_t)short_x8 * 62500UL +
+        normalized = ((uint32_t)short_high_x8 * 62500UL +
                       (metadata_wav_sample_rate / 2UL)) /
                      metadata_wav_sample_rate;
     }
     else if (metadata_format == FILE_FORMAT_LEP)
     {
-        normalized = ((uint32_t)short_x8 * 50UL + 8UL) / 16UL;
+        normalized = ((uint32_t)short_high_x8 * 50UL + 8UL) / 16UL;
     }
 
     return (normalized > 0xFFFFUL) ? 0xFFFFU : (uint16_t)normalized;
@@ -245,19 +242,22 @@ static uint16_t metadata_normalize_mz_short_x8(uint16_t short_x8)
 
 /* Convert the decoder's format-specific units to the same 16 us reference
    used by direct MZF recording, then classify the header pilot. */
-static loader_mode_t metadata_loader_mode_from_tone(uint16_t short_x8,
+static loader_mode_t metadata_loader_mode_from_tone(uint16_t short_high_x8,
                                                     uint16_t leader_pulses)
 {
-    uint16_t normalized = metadata_normalize_mz_short_x8(short_x8);
+    uint16_t normalized =
+        metadata_normalize_mz_short_high_x8(short_high_x8);
     uint16_t d1;
     uint16_t d2;
     uint16_t d3;
     uint16_t d4;
 
-    d1 = metadata_difference_u16(normalized, 248U);
-    d2 = metadata_difference_u16(normalized, 126U);
-    d3 = metadata_difference_u16(normalized, 106U);
-    d4 = metadata_difference_u16(normalized, 97U);
+    /* x8 L16 reference for logical HIGH: Normal 1:1 ~=119..120,
+       1:2 ~=57, 1:3 ~=44 and 1:4 ~=39. */
+    d1 = metadata_difference_u16(normalized, 120U);
+    d2 = metadata_difference_u16(normalized, 57U);
+    d3 = metadata_difference_u16(normalized, 44U);
+    d4 = metadata_difference_u16(normalized, 39U);
     if ((leader_pulses >= 8000U) && (leader_pulses <= 13000U) &&
         (d4 < d3) && (d4 < d2) && (d4 < d1))
     {
@@ -289,7 +289,7 @@ static void metadata_start_payload(uint32_t payload_bytes)
     metadata_payload_bytes = payload_bytes;
     metadata_payload_received = 0UL;
     metadata_payload_known = true;
-    mz_tape_decoder_start_data(payload_bytes, false);
+    mz_tape_decoder_start_data(payload_bytes);
 }
 
 /* Normalize one physical level interval to L16-unit * 8.  Limiting the source
@@ -844,12 +844,12 @@ static void autoname_take_decoder_event(void)
             else if (mz_loader_profile_recognize_tc_header(header))
             {
                 metadata_tc_pending = true;
-                mz_tape_decoder_start_data(MZ_TC_LOADER_BYTES, false);
+                mz_tape_decoder_start_data(MZ_TC_LOADER_BYTES);
             }
             else
             {
                 metadata_loader_mode = metadata_loader_mode_from_tone(
-                    mz_tape_decoder_get_header_short_x8(),
+                    mz_tape_decoder_get_header_short_high_x8(),
                     event.leader_pulses);
                 metadata_loader_valid = true;
                 metadata_start_payload(metadata_read_le16(header + 0x12U));
@@ -929,9 +929,6 @@ static void autoname_take_decoder_event(void)
 
 static void autoname_mz_fast_probe_reset(void)
 {
-    mz_fast_have_half = false;
-    mz_fast_half_units = 0U;
-    mz_fast_half_level = 0U;
     mz_fast_reference_x8 = 0U;
     mz_fast_stable_pulses = 0U;
     mz_fast_reference_checked = false;
@@ -939,7 +936,6 @@ static void autoname_mz_fast_probe_reset(void)
 
 static void autoname_mz_fast_probe_feed(uint16_t duration_units, uint8_t level)
 {
-    uint16_t pulse_units;
     uint16_t pulse_x8;
     uint16_t difference;
     uint16_t tolerance;
@@ -957,36 +953,9 @@ static void autoname_mz_fast_probe_feed(uint16_t duration_units, uint8_t level)
         autoname_mz_fast_probe_reset();
         return;
     }
-
-    if (!mz_fast_have_half)
-    {
-        mz_fast_have_half = true;
-        mz_fast_half_units = duration_units;
-        mz_fast_half_level = level;
-        return;
-    }
-
-    if (level == mz_fast_half_level)
-    {
-        /* Broken edge sequence: restart from the newest physical interval. */
-        mz_fast_half_units = duration_units;
-        mz_fast_half_level = level;
-        mz_fast_reference_x8 = 0U;
-        mz_fast_stable_pulses = 0U;
-        mz_fast_reference_checked = false;
-        return;
-    }
-
-    pulse_units = (uint16_t)(mz_fast_half_units + duration_units);
-    mz_fast_have_half = false;
-    if (pulse_units > 8191U)
-    {
-        mz_fast_reference_x8 = 0U;
-        mz_fast_stable_pulses = 0U;
-        mz_fast_reference_checked = false;
-        return;
-    }
-    pulse_x8 = (uint16_t)(pulse_units * 8U);
+    /* Physical WRITE LOW is the only receiver-relevant Sharp interval. */
+    if (level != 0U) return;
+    pulse_x8 = (uint16_t)(duration_units * 8U);
 
     if (mz_fast_reference_x8 == 0U)
     {
@@ -1027,7 +996,7 @@ static void autoname_mz_fast_probe_feed(uint16_t duration_units, uint8_t level)
         !mz_fast_reference_checked)
     {
         uint16_t normalized =
-            metadata_normalize_mz_short_x8(mz_fast_reference_x8);
+            metadata_normalize_mz_short_high_x8(mz_fast_reference_x8);
 
         mz_fast_reference_checked = true;
 
@@ -1074,13 +1043,6 @@ void record_autoname_feed_level_interval(uint16_t duration_units,
     }
 }
 
-void record_autoname_feed_interval(uint16_t duration_units)
-{
-    record_autoname_feed_level_interval(duration_units,
-                                        autoname_implicit_level);
-    autoname_implicit_level ^= 1U;
-}
-
 /* WAV packed-sample hot path after the Sharp-MZ probe locks AUX out.
    At that point the generic wrapper would only feed the native decoder and
    recheck a known LOCKED state. Bypass that branch while preserving decoder
@@ -1107,7 +1069,6 @@ void record_autoname_begin(bool enabled, file_format_t format,
     autoname_sample_active = false;
     autoname_sample_level = 0U;
     autoname_sample_run = 0U;
-    autoname_implicit_level = 0U;
     autoname_name[0] = '\0';
     metadata_format = format;
     metadata_wav_sample_rate =
@@ -1147,7 +1108,6 @@ void record_autoname_break_signal(void)
     if (!metadata_active) return;
     autoname_sample_active = false;
     autoname_sample_run = 0U;
-    autoname_implicit_level = 0U;
     mz_tape_decoder_break_signal();
     if (autoname_aux.state != AUTONAME_AUX_LOCKED)
     {

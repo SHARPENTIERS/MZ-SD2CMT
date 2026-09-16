@@ -42,8 +42,10 @@ typedef struct
     mz_tape_profile_id_t id;
     mz_tape_framing_t framing;
     uint8_t caps;
-    /* Timer3 runs at 16 MHz.  Keeping half-pulses in timer ticks retains
-       the fractional-microsecond timings of the reference profiles. */
+    /* Timer3 runs at 16 MHz. These are durations in the logical Sharp/MZ
+       8255-side waveform domain: HIGH fields always belong to logical HIGH
+       and LOW fields always belong to logical LOW. The READ output layer
+       applies the fixed connector inversion without exchanging durations. */
     uint16_t short_high_ticks;
     uint16_t short_low_ticks;
     uint16_t long_high_ticks;

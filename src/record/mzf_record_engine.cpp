@@ -66,12 +66,12 @@ static uint16_t difference_u16(uint16_t left, uint16_t right)
                              (uint16_t)(right - left);
 }
 
-/* The neutral decoder learns the complete short pulse in 16 us units x8.
-   QDTool-compatible profiles center close to 248, 126 and 106.  Metadata-free
-   NORMAL 1:4 samples center close to 97 and use an approximately
+/* The decoder learns logical HIGH/external WRITE LOW in 16 us units x8.
+   QDTool-compatible profiles center close to 120, 57 and 44. Metadata-free
+   NORMAL 1:4 samples center close to 39 and use an approximately
    11,000-pulse header pilot.  Requiring both properties prevents a fast or
    speed-shifted NORMAL pilot from being classified from pulse width alone. */
-static mzi_record_profile_t profile_from_header_tone(uint16_t short_x8,
+static mzi_record_profile_t profile_from_header_tone(uint16_t short_high_x8,
                                                      uint16_t leader_pulses)
 {
     uint16_t d1;
@@ -79,11 +79,11 @@ static mzi_record_profile_t profile_from_header_tone(uint16_t short_x8,
     uint16_t d3;
     uint16_t d4;
 
-    if (short_x8 == 0U) return MZI_RECORD_PROFILE_NORMAL_1_1;
-    d1 = difference_u16(short_x8, 248U);
-    d2 = difference_u16(short_x8, 126U);
-    d3 = difference_u16(short_x8, 106U);
-    d4 = difference_u16(short_x8, 97U);
+    if (short_high_x8 == 0U) return MZI_RECORD_PROFILE_NORMAL_1_1;
+    d1 = difference_u16(short_high_x8, 120U);
+    d2 = difference_u16(short_high_x8, 57U);
+    d3 = difference_u16(short_high_x8, 44U);
+    d4 = difference_u16(short_high_x8, 39U);
     if ((leader_pulses >= 8000U) && (leader_pulses <= 13000U) &&
         (d4 < d3) && (d4 < d2) && (d4 < d1))
     {
@@ -215,7 +215,8 @@ static bool accept_decoder_events(void)
         {
             const uint8_t *header = mz_tape_decoder_get_header();
             const uint8_t *logical_header = header;
-            uint16_t header_short_x8 = mz_tape_decoder_get_header_short_x8();
+            uint16_t header_short_high_x8 =
+                mz_tape_decoder_get_header_short_high_x8();
             if (header_valid || tc_loader_pending) return false;
 
             if (mz_loader_profile_recognize_ic(
@@ -228,13 +229,13 @@ static bool accept_decoder_events(void)
             {
                 tc_loader_pending = true;
                 record_autoname_accept_header(header);
-                mz_tape_decoder_start_data(MZ_TC_LOADER_BYTES, false);
+                mz_tape_decoder_start_data(MZ_TC_LOADER_BYTES);
                 continue;
             }
             else
             {
                 mzi_profile = profile_from_header_tone(
-                    header_short_x8, event.leader_pulses);
+                    header_short_high_x8, event.leader_pulses);
             }
 
             if (!emit_header(logical_header)) return false;
@@ -243,7 +244,7 @@ static bool accept_decoder_events(void)
             expected_file_bytes = 128UL + expected_data_bytes;
             header_valid = true;
             record_autoname_accept_header(logical_header);
-            mz_tape_decoder_start_data(expected_data_bytes, false);
+            mz_tape_decoder_start_data(expected_data_bytes);
         }
         else if (event.type == MZ_TAPE_DECODER_EVENT_DATA_BYTE)
         {
@@ -282,10 +283,9 @@ static bool accept_decoder_events(void)
                 header_valid = true;
                 tc_loader_pending = false;
                 record_autoname_accept_header(mzf_stage1_buffer);
-                /* TC PLAY inverts the complete generated tape, not the
-                   payload relative to its loader.  Real TC/Intercopy SAVE
-                   therefore keeps the physical pulse-start phase here. */
-                mz_tape_decoder_start_data(expected_data_bytes, false);
+                /* TC/Intercopy SAVE uses the same fixed external WRITE
+                   polarity as every other live-record profile. */
+                mz_tape_decoder_start_data(expected_data_bytes);
                 continue;
             }
             /* NORMAL MZ700 and MZ800 both finish on the first valid copy.

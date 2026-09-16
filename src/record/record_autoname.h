@@ -39,7 +39,7 @@ void record_autoname_begin(bool enabled, file_format_t format,
    user pause: captured FIFOs may still contain the end of a tape header. */
 void record_autoname_break_signal(void);
 void record_autoname_feed_packed_samples(uint8_t packed, uint8_t valid_bits);
-void record_autoname_feed_interval(uint16_t duration_units);
+/* level is the unmodified physical WRITE level captured at the MCU pin. */
 void record_autoname_feed_level_interval(uint16_t duration_units,
                                          uint8_t level);
 

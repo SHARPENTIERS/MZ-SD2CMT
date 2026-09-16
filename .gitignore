@@ -5,4 +5,6 @@ generated/
 platformio.exe
 .test/
 .specification/
-.TEST/
+.tests/
+
+.fake
