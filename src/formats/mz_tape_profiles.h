@@ -34,6 +34,9 @@ typedef enum
     MZ_TAPE_PROFILE_TC_1_3,
     MZ_TAPE_PROFILE_TC_1_2,
     MZ_TAPE_PROFILE_MZ800_NORMAL_4X,
+    /* Append-only so existing profile IDs do not move. */
+    MZ_TAPE_PROFILE_IC_1_1,
+    MZ_TAPE_PROFILE_TC_1_1,
     MZ_TAPE_PROFILE_COUNT
 } mz_tape_profile_id_t;
 

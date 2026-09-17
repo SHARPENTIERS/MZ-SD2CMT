@@ -27,9 +27,11 @@ static const char text_detect_normal_1_3[] PROGMEM = "NRL 1:3";
 static const char text_detect_normal_1_4[] PROGMEM = "NRL 1:4";
 static const char text_detect_mz700_1_1[] PROGMEM = "MZ7 1:1";
 static const char text_detect_mz700_1_3[] PROGMEM = "MZ7 1:3";
+static const char text_detect_ic_1_1[] PROGMEM = "IC 1:1";
 static const char text_detect_ic_1_4[] PROGMEM = "IC 1:4";
 static const char text_detect_ic_1_3[] PROGMEM = "IC 1:3";
 static const char text_detect_ic_1_2[] PROGMEM = "IC 1:2";
+static const char text_detect_tc_1_1[] PROGMEM = "TC 1:1";
 static const char text_detect_tc_1_3[] PROGMEM = "TC 1:3";
 static const char text_detect_tc_1_2[] PROGMEM = "TC 1:2";
 static const char text_detect_sin_1_1[] PROGMEM = "SIN 1:1";
@@ -42,14 +44,15 @@ static const char text_detect_cpm_1_3[] PROGMEM = "CPM 1:3";
 static const char text_detect_cpm_1_4[] PROGMEM = "CPM 1:4";
 
 /* Immutable label pointers belong in flash too; a return-value switch makes
-   AVR-GCC copy the equivalent 32-byte table into SRAM at startup. */
+   AVR-GCC copy the equivalent table into SRAM at startup. */
 static const char * const detected_loader_labels_P[LOADER_MODE_COUNT] PROGMEM =
 {
     text_detect_normal_1_1, NULL, NULL, NULL,
     NULL, text_detect_mz700_1_3, text_detect_ic_1_4, text_detect_ic_1_3,
     text_detect_ic_1_2, text_detect_tc_1_3, text_detect_tc_1_2,
     text_detect_normal_1_2, text_detect_normal_1_3,
-    text_detect_mz700_1_1, text_detect_normal_1_4
+    text_detect_mz700_1_1, text_detect_normal_1_4,
+    text_detect_ic_1_1, text_detect_tc_1_1
 };
 
 static const char * const detected_aux_labels_P[9] PROGMEM =

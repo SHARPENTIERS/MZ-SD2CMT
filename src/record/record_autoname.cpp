@@ -274,9 +274,11 @@ static bool metadata_loader_from_copier(mz_copier_profile_t profile,
     if (loader_mode == NULL) return false;
     switch (profile)
     {
+        case MZ_COPIER_IC_1_1: *loader_mode = LOADER_MODE_IC_1_1; return true;
         case MZ_COPIER_IC_1_4: *loader_mode = LOADER_MODE_IC_1_4; return true;
         case MZ_COPIER_IC_1_3: *loader_mode = LOADER_MODE_IC_1_3; return true;
         case MZ_COPIER_IC_1_2: *loader_mode = LOADER_MODE_IC_1_2; return true;
+        case MZ_COPIER_TC_1_1: *loader_mode = LOADER_MODE_TC_1_1; return true;
         case MZ_COPIER_TC_1_3: *loader_mode = LOADER_MODE_TC_1_3; return true;
         case MZ_COPIER_TC_1_2: *loader_mode = LOADER_MODE_TC_1_2; return true;
         case MZ_COPIER_NONE:
@@ -1059,7 +1061,6 @@ void autoname_feed_packed_interval(uint16_t duration_units, uint8_t level)
 
     record_autoname_feed_level_interval(duration_units, level);
 }
-
 
 void record_autoname_begin(bool enabled, file_format_t format,
                            uint32_t wav_sample_rate)

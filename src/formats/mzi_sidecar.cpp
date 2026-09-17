@@ -23,12 +23,16 @@ static const char mzi_mz700_1_1_P[] PROGMEM =
     "TYPE=MZ700\nSPEED=1:1\n";
 static const char mzi_mz700_1_3_P[] PROGMEM =
     "TYPE=MZ700\nSPEED=1:3\n";
+static const char mzi_ic_1_1_P[] PROGMEM =
+    "TYPE=IC\nSPEED=1:1\n";
 static const char mzi_ic_1_4_P[] PROGMEM =
     "TYPE=IC\nSPEED=1:4\n";
 static const char mzi_ic_1_3_P[] PROGMEM =
     "TYPE=IC\nSPEED=1:3\n";
 static const char mzi_ic_1_2_P[] PROGMEM =
     "TYPE=IC\nSPEED=1:2\n";
+static const char mzi_tc_1_1_P[] PROGMEM =
+    "TYPE=TC\nSPEED=1:1\n";
 static const char mzi_tc_1_3_P[] PROGMEM =
     "TYPE=TC\nSPEED=1:3\n";
 static const char mzi_tc_1_2_P[] PROGMEM =
@@ -47,7 +51,8 @@ static const char * const mzi_loader_texts_P[LOADER_MODE_COUNT] PROGMEM =
     mzi_normal_1_1_P, NULL, mzi_ul_P, mzi_ul_mz800_P,
     mzi_ul_mz700_P, mzi_mz700_1_3_P, mzi_ic_1_4_P, mzi_ic_1_3_P,
     mzi_ic_1_2_P, mzi_tc_1_3_P, mzi_tc_1_2_P, mzi_normal_1_2_P,
-    mzi_normal_1_3_P, mzi_mz700_1_1_P, mzi_normal_1_4_P
+    mzi_normal_1_3_P, mzi_mz700_1_1_P, mzi_normal_1_4_P,
+    mzi_ic_1_1_P, mzi_tc_1_1_P
 };
 
 static char ascii_upper(char value)
@@ -199,7 +204,8 @@ static bool loader_from_fields(const char *type, const char *speed,
 
     if (text_equals_ci_P(type, PSTR("IC")))
     {
-        if (strcmp_P(speed, PSTR("1:4")) == 0) *loader_mode = LOADER_MODE_IC_1_4;
+        if (strcmp_P(speed, PSTR("1:1")) == 0) *loader_mode = LOADER_MODE_IC_1_1;
+        else if (strcmp_P(speed, PSTR("1:4")) == 0) *loader_mode = LOADER_MODE_IC_1_4;
         else if (strcmp_P(speed, PSTR("1:3")) == 0) *loader_mode = LOADER_MODE_IC_1_3;
         else if (strcmp_P(speed, PSTR("1:2")) == 0) *loader_mode = LOADER_MODE_IC_1_2;
         else return false;
@@ -208,7 +214,8 @@ static bool loader_from_fields(const char *type, const char *speed,
 
     if (text_equals_ci_P(type, PSTR("TC")))
     {
-        if (strcmp_P(speed, PSTR("1:3")) == 0) *loader_mode = LOADER_MODE_TC_1_3;
+        if (strcmp_P(speed, PSTR("1:1")) == 0) *loader_mode = LOADER_MODE_TC_1_1;
+        else if (strcmp_P(speed, PSTR("1:3")) == 0) *loader_mode = LOADER_MODE_TC_1_3;
         else if (strcmp_P(speed, PSTR("1:2")) == 0) *loader_mode = LOADER_MODE_TC_1_2;
         else return false;
         return true;
@@ -312,9 +319,11 @@ bool mzi_record_profile_get_loader_mode(mzi_record_profile_t profile,
         case MZI_RECORD_PROFILE_NORMAL_1_2: *loader_mode = LOADER_MODE_NORMAL_1_2; break;
         case MZI_RECORD_PROFILE_NORMAL_1_3: *loader_mode = LOADER_MODE_NORMAL_1_3; break;
         case MZI_RECORD_PROFILE_NORMAL_1_4: *loader_mode = LOADER_MODE_NORMAL_1_4; break;
+        case MZI_RECORD_PROFILE_IC_1_1: *loader_mode = LOADER_MODE_IC_1_1; break;
         case MZI_RECORD_PROFILE_IC_1_4: *loader_mode = LOADER_MODE_IC_1_4; break;
         case MZI_RECORD_PROFILE_IC_1_3: *loader_mode = LOADER_MODE_IC_1_3; break;
         case MZI_RECORD_PROFILE_IC_1_2: *loader_mode = LOADER_MODE_IC_1_2; break;
+        case MZI_RECORD_PROFILE_TC_1_1: *loader_mode = LOADER_MODE_TC_1_1; break;
         case MZI_RECORD_PROFILE_TC_1_3: *loader_mode = LOADER_MODE_TC_1_3; break;
         case MZI_RECORD_PROFILE_TC_1_2: *loader_mode = LOADER_MODE_TC_1_2; break;
         case MZI_RECORD_PROFILE_NORMAL_1_1:

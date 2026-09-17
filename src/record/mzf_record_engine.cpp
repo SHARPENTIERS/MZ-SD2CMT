@@ -98,9 +98,11 @@ static mzi_record_profile_t profile_from_copier(mz_copier_profile_t profile)
 {
     switch (profile)
     {
+        case MZ_COPIER_IC_1_1: return MZI_RECORD_PROFILE_IC_1_1;
         case MZ_COPIER_IC_1_4: return MZI_RECORD_PROFILE_IC_1_4;
         case MZ_COPIER_IC_1_3: return MZI_RECORD_PROFILE_IC_1_3;
         case MZ_COPIER_IC_1_2: return MZI_RECORD_PROFILE_IC_1_2;
+        case MZ_COPIER_TC_1_1: return MZI_RECORD_PROFILE_TC_1_1;
         case MZ_COPIER_TC_1_3: return MZI_RECORD_PROFILE_TC_1_3;
         case MZ_COPIER_TC_1_2: return MZI_RECORD_PROFILE_TC_1_2;
         case MZ_COPIER_NONE:
@@ -568,7 +570,7 @@ void mzf_record_engine_service(void)
     sdcard_file_close();
     mz_tape_decoder_stop();
     /* Sidecar failure is intentionally nonfatal: the canonical MZF is already
-       closed and valid. O_TRUNC replaces an existing RECxxxx.MZI. */
+       closed and valid. O_TRUNC replaces an existing RECxxxx.MFI. */
     (void)mzi_sidecar_write_for_mzf(record_path_buffer, mzi_profile);
     record_state = MZF_RECORD_ENGINE_FINISHED;
 }

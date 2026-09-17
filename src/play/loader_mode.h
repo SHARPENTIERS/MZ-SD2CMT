@@ -20,6 +20,9 @@ typedef enum
     LOADER_MODE_NORMAL_1_3,
     LOADER_MODE_MZ700_1X,
     LOADER_MODE_NORMAL_1_4,
+    /* Append-only: loader_mode is persisted in EEPROM. */
+    LOADER_MODE_IC_1_1,
+    LOADER_MODE_TC_1_1,
     LOADER_MODE_COUNT
 } loader_mode_t;
 

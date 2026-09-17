@@ -43,6 +43,14 @@ static const mz_tape_profile_t mz_tape_profiles_P[MZ_TAPE_PROFILE_COUNT]
       40U, 40U, 20U, 20U, 2U, 0U, false, false },
     { MZ_TAPE_PROFILE_MZ800_NORMAL_4X, MZ_TAPE_FRAMING_MZ800_NATIVE,
       CAPS_NATIVE, 1232U, 1877U, 2522U, 2874U, 11000UL, 5500UL,
+      40U, 40U, 20U, 20U, 2U, 0U, false, false },
+    /* Intercopy V10.2 1200 Bd writer, rounded to 16 MHz Timer3 ticks. */
+    { MZ_TAPE_PROFILE_IC_1_1, MZ_TAPE_FRAMING_IC_TURBO,
+      CAPS_LOADER_RECORD, 3753U, 4222U, 7506U, 7917U, 11000UL, 5500UL,
+      40U, 40U, 20U, 20U, 2U, 0U, false, false },
+    /* Turbo Copy V1.22 MODE3 1:1: count 551/1102 @ nominal CKMS 1.10 MHz. */
+    { MZ_TAPE_PROFILE_TC_1_1, MZ_TAPE_FRAMING_TC_TURBO,
+      CAPS_LOADER_RECORD, 4015U, 4000U, 8015U, 8015U, 11000UL, 5500UL,
       40U, 40U, 20U, 20U, 2U, 0U, false, false }
 };
 

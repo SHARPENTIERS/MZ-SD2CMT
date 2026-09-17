@@ -1,6 +1,6 @@
 # MFI / MTI playback metadata
 
-External metadata names are now explicit:
+External metadata names are explicit:
 
 - `GAME.MZF` -> `GAME.MFI`
 - `TAPE.MZT` -> `TAPE.MTI`
@@ -15,6 +15,18 @@ Example:
 ```text
 TYPE=NORMAL
 SPEED=1:3
+```
+
+Intercopy and TurboCopy examples:
+
+```text
+TYPE=IC
+SPEED=1:1
+```
+
+```text
+TYPE=TC
+SPEED=1:1
 ```
 
 Loader without a SPEED field:
@@ -37,15 +49,23 @@ TYPE=NORMAL
 SPEED=1:3
 
 RECORD=2
-TYPE=UL
+TYPE=IC
+SPEED=1:1
 
 RECORD=3
-TYPE=UL_MZ800
+TYPE=TC
+SPEED=1:1
 
 RECORD=4
-TYPE=UL_MZ700
+TYPE=UL
 
 RECORD=5
+TYPE=UL_MZ800
+
+RECORD=6
+TYPE=UL_MZ700
+
+RECORD=7
 TYPE=MZ700
 SPEED=1:3
 ```
@@ -59,14 +79,30 @@ then reopens the MZT and seeks back to the saved position.
 
 | TYPE | SPEED | Firmware mode |
 |---|---|---|
-| `NORMAL` | `1:1`, `1:2`, `1:3`, `1:4` | native MZ-800 timing |
+| `NORMAL` | `1:1`, `1:2`, `1:3`, `1:4` | native / historical MZ-800 timing family |
 | `MZ700` | `1:1` | native MZ-700 timing |
 | `MZ700` | `1:3` | MZ-700 FAST3 loader |
-| `IC` | `1:2`, `1:3`, `1:4` | IC turbo |
-| `TC` | `1:2`, `1:3`, `1:4` | Turbo Copy loader/timing |
+| `IC` | `1:1`, `1:2`, `1:3`, `1:4` | Intercopy/FASTIPL loader + IC payload timing |
+| `TC` | `1:1`, `1:2`, `1:3` | Turbo Copy loader + TC payload timing |
 | `UL` | none | classic Ultra Fast, automatic LOW/HIGH placement |
 | `UL_MZ800` | none | MZ-800 header-only Ultra Fast |
 | `UL_MZ700` | none | MZ-700 header-only Ultra Fast |
+
+`TC 1:4` is intentionally not accepted: TurboCopy V1.22 provides the 1:1,
+1:2 and 1:3 timing family used by this firmware; no verified TC 1:4 loader
+readpoint/writer profile is defined.
+
+### Copier speed bytes used by generated loaders
+
+| Mode | Loader/readpoint byte | Source |
+|---|---:|---|
+| IC 1:1 | `$4D` | Intercopy V10.2 1200-Bd row |
+| IC 1:2 | `$20` | Intercopy V10.2 2400-Bd row |
+| IC 1:3 | `$16` | Intercopy V10.2 2800-Bd row |
+| IC 1:4 | `$11` | Intercopy V10.2 3200-Bd row |
+| TC 1:1 | `$52` | native MZ-800 1Z-013B DLY3 used by TC loader family |
+| TC 1:2 | `$29` | TurboCopy loader family |
+| TC 1:3 | `$1B` | TurboCopy loader family |
 
 CRLF and LF are accepted. TYPE is compared case-insensitively.
 
@@ -99,16 +135,16 @@ sidecar exists.
 
 ## Per-record time
 
-MZT no longer displays one total duration for the entire container. The active
+MZT does not display one total duration for the entire container. The active
 clock and nominal duration belong only to the current logical record. When the
 next MZT record becomes active, elapsed time resets to `00:00` and its own
 nominal duration becomes the new total.
 
 - NORMAL 1:1/1:2/1:3/1:4: exact current-record generated waveform duration
 - MZ700 1:1: current-record duration
-- MZ700 FAST3: current-record generated FAST3 duration including its fixed start delay
-- IC 1:2/1:3/1:4: current-record patched header + turbo payload duration
-- TC 1:2/1:3/1:4: current-record patched header + TC loader + turbo payload duration
+- MZ700 FAST3: current-record generated FAST3 duration including fixed start delay
+- IC 1:1/1:2/1:3/1:4: patched header + IC payload duration
+- TC 1:1/1:2/1:3: patched header + TC loader + TC payload duration
 - UL / UL_MZ800 / UL_MZ700: unknown (`--:--`) because payload timing is governed
   by the live WRITE/SENSE handshake
 

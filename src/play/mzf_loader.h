@@ -38,7 +38,10 @@ typedef enum
     MZF_LOADER_VARIANT_IC_1_3,
     MZF_LOADER_VARIANT_IC_1_2,
     MZF_LOADER_VARIANT_TC_1_3,
-    MZF_LOADER_VARIANT_TC_1_2
+    MZF_LOADER_VARIANT_TC_1_2,
+    /* Append-only to preserve existing variant values used by diagnostics. */
+    MZF_LOADER_VARIANT_IC_1_1,
+    MZF_LOADER_VARIANT_TC_1_1
 } mzf_loader_variant_t;
 
 void mzf_loader_reset(void);

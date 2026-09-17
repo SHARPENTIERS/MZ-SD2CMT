@@ -80,7 +80,8 @@ bool mz_loader_profile_detect_ic(const uint8_t *header,
 
     if ((header == NULL) || (header[0x18U] != 0x01U)) return false;
 
-    matched = (header[0x19U] == 0x11U) ? MZ_COPIER_IC_1_4 :
+    matched = (header[0x19U] == 0x4DU) ? MZ_COPIER_IC_1_1 :
+              (header[0x19U] == 0x11U) ? MZ_COPIER_IC_1_4 :
               (header[0x19U] == 0x16U) ? MZ_COPIER_IC_1_3 :
               (header[0x19U] == 0x20U) ? MZ_COPIER_IC_1_2 : MZ_COPIER_NONE;
     if (matched == MZ_COPIER_NONE) return false;
@@ -144,7 +145,8 @@ bool mz_loader_profile_detect_tc(const uint8_t *loader_header,
     mz_copier_profile_t matched;
     if (!mz_loader_profile_recognize_tc_header(loader_header) ||
         (loader_data == NULL)) return false;
-    matched = (loader_data[0x4BU] == 0x1BU) ? MZ_COPIER_TC_1_3 :
+    matched = (loader_data[0x4BU] == 0x52U) ? MZ_COPIER_TC_1_1 :
+              (loader_data[0x4BU] == 0x1BU) ? MZ_COPIER_TC_1_3 :
               (loader_data[0x4BU] == 0x29U) ? MZ_COPIER_TC_1_2 : MZ_COPIER_NONE;
     if ((matched == MZ_COPIER_NONE) || !supported_type(loader_data[0x4CU]))
         return false;
