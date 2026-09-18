@@ -68,12 +68,6 @@ static volatile uint8_t initial_level = 0U;
 */
 static volatile uint8_t interval_has_long_blocks = 0U;
 
-/*
-   Error-diffusion residual in Timer5 ticks. LEP can temporarily reach -99..50
-   ticks for sub-unit glitches; L16 remains in -3..2 ticks. Both fit int8_t.
-*/
-static int8_t quantization_residual_ticks = 0;
-
 /* One unpaired 1..15-unit slot is held until the next short slot arrives. */
 static volatile uint8_t pending_short_units = 0U;
 
@@ -197,7 +191,6 @@ static inline bool edge_push_long_tail_from_isr(int8_t tail_units)
 static inline bool edge_quantize_l16_short_from_isr(uint16_t ticks,
                                                      uint8_t *units_out)
 {
-    int16_t adjusted;
     uint16_t units;
 
     if (units_out == NULL)
@@ -205,14 +198,8 @@ static inline bool edge_quantize_l16_short_from_isr(uint16_t ticks,
         return false;
     }
 
-    adjusted = (int16_t)ticks + (int16_t)quantization_residual_ticks;
-    if (adjusted < 1)
-    {
-        adjusted = 1;
-    }
-
-    /* floor((adjusted + 2) / 4), but only a logical shift is generated. */
-    units = (uint16_t)(adjusted + 2) >> 2U;
+    /* floor((ticks + 2) / 4), but only a logical shift is generated. */
+    units = (uint16_t)(ticks + 2U) >> 2U;
     if (units == 0U)
     {
         units = 1U;
@@ -222,8 +209,6 @@ static inline bool edge_quantize_l16_short_from_isr(uint16_t ticks,
         return false;
     }
 
-    quantization_residual_ticks =
-        (int8_t)(adjusted - (int16_t)((int16_t)units << 2U));
     *units_out = (uint8_t)units;
     return true;
 }
@@ -231,7 +216,6 @@ static inline bool edge_quantize_l16_short_from_isr(uint16_t ticks,
 static inline bool edge_quantize_lep_short_from_isr(uint16_t ticks,
                                                      uint8_t *units_out)
 {
-    int16_t adjusted;
     uint16_t rounded;
     uint8_t units = 0U;
 
@@ -240,14 +224,8 @@ static inline bool edge_quantize_lep_short_from_isr(uint16_t ticks,
         return false;
     }
 
-    adjusted = (int16_t)ticks + (int16_t)quantization_residual_ticks;
-    if (adjusted < 1)
-    {
-        adjusted = 1;
-    }
-
-    /* floor((adjusted + 50) / 100) without __divmodhi4. */
-    rounded = (uint16_t)(adjusted + 50);
+    /* floor((ticks + 50) / 100) without __divmodhi4. */
+    rounded = (uint16_t)(ticks + 50U);
     while (rounded >= EDGE_LEP_UNIT_TICKS)
     {
         rounded = (uint16_t)(rounded - EDGE_LEP_UNIT_TICKS);
@@ -262,8 +240,6 @@ static inline bool edge_quantize_lep_short_from_isr(uint16_t ticks,
         units = 1U;
     }
 
-    quantization_residual_ticks =
-        (int8_t)(adjusted - (int16_t)((uint16_t)units * EDGE_LEP_UNIT_TICKS));
     *units_out = units;
     return true;
 }
@@ -271,6 +247,11 @@ static inline bool edge_quantize_lep_short_from_isr(uint16_t ticks,
 static inline bool edge_quantize_short_from_isr(uint16_t ticks,
                                                 uint8_t *units_out)
 {
+    /*
+       LEP/L16 is an edge-duration format, not a sampled waveform. Quantize
+       each physical run independently so its stored width cannot depend on
+       previous pulses. WAV keeps its separate sample-clock timing.
+    */
     if (edge_quantizer_is_l16 != 0U)
     {
         return edge_quantize_l16_short_from_isr(ticks, units_out);
@@ -281,37 +262,21 @@ static inline bool edge_quantize_short_from_isr(uint16_t ticks,
 static inline bool edge_quantize_l16_long_tail_from_isr(uint16_t ticks,
                                                          int8_t *tail_out)
 {
-    int16_t adjusted;
-    int16_t rounded;
-    int16_t tail_units;
-    int16_t quantized_ticks;
+    uint16_t tail_units;
 
     if (tail_out == NULL)
     {
         return false;
     }
 
-    adjusted = (int16_t)ticks + (int16_t)quantization_residual_ticks;
-    rounded = (int16_t)(adjusted + 2);
+    /* The preceding 127-unit blocks are exact; round only this run's tail. */
+    tail_units = (uint16_t)(ticks + 2U) >> 2U;
 
-    /* floor(rounded / 4), preserving the only possible negative result -1. */
-    if (rounded < 0)
-    {
-        tail_units = -1;
-    }
-    else
-    {
-        tail_units = (int16_t)((uint16_t)rounded >> 2U);
-    }
-
-    if ((tail_units < -1) || (tail_units > 127))
+    if (tail_units > 127U)
     {
         return false;
     }
 
-    quantized_ticks = (tail_units < 0) ? -EDGE_L16_UNIT_TICKS :
-        (int16_t)(tail_units << 2U);
-    quantization_residual_ticks = (int8_t)(adjusted - quantized_ticks);
     *tail_out = (int8_t)tail_units;
     return true;
 }
@@ -319,45 +284,26 @@ static inline bool edge_quantize_l16_long_tail_from_isr(uint16_t ticks,
 static inline bool edge_quantize_lep_long_tail_from_isr(uint16_t ticks,
                                                          int8_t *tail_out)
 {
-    int16_t adjusted;
-    int16_t rounded;
-    int16_t tail_units = 0;
-    int16_t quantized_ticks;
+    uint16_t rounded;
+    uint8_t tail_units = 0U;
 
     if (tail_out == NULL)
     {
         return false;
     }
 
-    adjusted = (int16_t)ticks + (int16_t)quantization_residual_ticks;
-    rounded = (int16_t)(adjusted + 50);
-
-    /* floor(rounded / 100) without __divmodhi4.  The negative case is -1. */
-    if (rounded < 0)
+    /* The preceding 127-unit blocks are exact; round only this run's tail. */
+    rounded = (uint16_t)(ticks + 50U);
+    while (rounded >= EDGE_LEP_UNIT_TICKS)
     {
-        tail_units = -1;
-    }
-    else
-    {
-        while (rounded >= (int16_t)EDGE_LEP_UNIT_TICKS)
+        rounded = (uint16_t)(rounded - EDGE_LEP_UNIT_TICKS);
+        tail_units++;
+        if (tail_units > 127U)
         {
-            rounded = (int16_t)(rounded - (int16_t)EDGE_LEP_UNIT_TICKS);
-            tail_units++;
-            if (tail_units > 127)
-            {
-                return false;
-            }
+            return false;
         }
     }
 
-    if ((tail_units < -1) || (tail_units > 127))
-    {
-        return false;
-    }
-
-    quantized_ticks = (tail_units < 0) ? -(int16_t)EDGE_LEP_UNIT_TICKS :
-        (int16_t)(tail_units * (int16_t)EDGE_LEP_UNIT_TICKS);
-    quantization_residual_ticks = (int8_t)(adjusted - quantized_ticks);
     *tail_out = (int8_t)tail_units;
     return true;
 }
@@ -512,7 +458,6 @@ void edge_record_driver_init(void)
         initial_level = 0U;
         interval_has_long_blocks = 0U;
         pending_short_units = 0U;
-        quantization_residual_ticks = 0;
         edge_state = EDGE_RECORD_DRIVER_STOPPED;
     }
 }
@@ -560,7 +505,6 @@ bool edge_record_driver_start(void)
         paused_counter = 0U;
         interval_has_long_blocks = 0U;
         pending_short_units = 0U;
-        quantization_residual_ticks = 0;
         edge_start_timer_from_isr(0U);
         edge_state = EDGE_RECORD_DRIVER_RUNNING;
         edge_enable_capture_from_isr();
