@@ -4,8 +4,9 @@ generated/
 .gitignore
 platformio.exe
 .test/
-.specification/
-.tests/
+specification/
+tests/
+tools/
 
 .fake
 /specification

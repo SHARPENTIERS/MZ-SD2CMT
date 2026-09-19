@@ -67,23 +67,17 @@ static uint16_t difference_u16(uint16_t left, uint16_t right)
 }
 
 /* The decoder learns logical HIGH/external WRITE LOW in 16 us units x8.
-   QDTool-compatible profiles center close to 120, 57 and 44. Metadata-free
-   NORMAL 1:4 samples center close to 39 and use an approximately
-   11,000-pulse header pilot.  Requiring both properties prevents a fast or
-   speed-shifted NORMAL pilot from being classified from pulse width alone. */
-static mzi_record_profile_t profile_from_header_tone(uint16_t short_high_x8,
-                                                     uint16_t leader_pulses)
+   Use both leader SHORT and header-mark LONG timing so L16 quantization cannot
+   collapse Normal 1:3 and 1:4 to the same SHORT value.  The old SHORT-only
+   rule remains as a defensive fallback if LONG mark timing is unavailable. */
+static mzi_record_profile_t profile_from_header_short_only(
+    uint16_t short_high_x8, uint16_t leader_pulses)
 {
-    uint16_t d1;
-    uint16_t d2;
-    uint16_t d3;
-    uint16_t d4;
+    uint16_t d1 = difference_u16(short_high_x8, 120U);
+    uint16_t d2 = difference_u16(short_high_x8, 57U);
+    uint16_t d3 = difference_u16(short_high_x8, 44U);
+    uint16_t d4 = difference_u16(short_high_x8, 39U);
 
-    if (short_high_x8 == 0U) return MZI_RECORD_PROFILE_NORMAL_1_1;
-    d1 = difference_u16(short_high_x8, 120U);
-    d2 = difference_u16(short_high_x8, 57U);
-    d3 = difference_u16(short_high_x8, 44U);
-    d4 = difference_u16(short_high_x8, 39U);
     if ((leader_pulses >= 8000U) && (leader_pulses <= 13000U) &&
         (d4 < d3) && (d4 < d2) && (d4 < d1))
     {
@@ -91,6 +85,37 @@ static mzi_record_profile_t profile_from_header_tone(uint16_t short_high_x8,
     }
     if ((d2 < d1) && (d2 <= d3)) return MZI_RECORD_PROFILE_NORMAL_1_2;
     if ((d3 < d1) && (d3 < d2)) return MZI_RECORD_PROFILE_NORMAL_1_3;
+    return MZI_RECORD_PROFILE_NORMAL_1_1;
+}
+
+static mzi_record_profile_t profile_from_header_tone(uint16_t short_high_x8,
+                                                     uint16_t long_high_x8,
+                                                     uint16_t leader_pulses)
+{
+    uint16_t score1;
+    uint16_t score2;
+    uint16_t score3;
+    uint16_t score4;
+
+    if (short_high_x8 == 0U) return MZI_RECORD_PROFILE_NORMAL_1_1;
+    if (long_high_x8 == 0U)
+        return profile_from_header_short_only(short_high_x8, leader_pulses);
+
+    score1 = (uint16_t)(difference_u16(short_high_x8, 120U) +
+                        difference_u16(long_high_x8, 235U));
+    score2 = (uint16_t)(difference_u16(short_high_x8, 57U) +
+                        difference_u16(long_high_x8, 117U));
+    score3 = (uint16_t)(difference_u16(short_high_x8, 44U) +
+                        difference_u16(long_high_x8, 88U));
+    score4 = (uint16_t)(difference_u16(short_high_x8, 39U) +
+                        difference_u16(long_high_x8, 79U));
+
+    if ((score4 < score3) && (score4 < score2) && (score4 < score1))
+        return MZI_RECORD_PROFILE_NORMAL_1_4;
+    if ((score2 < score1) && (score2 <= score3) && (score2 <= score4))
+        return MZI_RECORD_PROFILE_NORMAL_1_2;
+    if ((score3 < score1) && (score3 < score2) && (score3 <= score4))
+        return MZI_RECORD_PROFILE_NORMAL_1_3;
     return MZI_RECORD_PROFILE_NORMAL_1_1;
 }
 
@@ -219,6 +244,8 @@ static bool accept_decoder_events(void)
             const uint8_t *logical_header = header;
             uint16_t header_short_high_x8 =
                 mz_tape_decoder_get_header_short_high_x8();
+            uint16_t header_long_high_x8 =
+                mz_tape_decoder_get_header_long_high_x8();
             if (header_valid || tc_loader_pending) return false;
 
             if (mz_loader_profile_recognize_ic(
@@ -237,7 +264,8 @@ static bool accept_decoder_events(void)
             else
             {
                 mzi_profile = profile_from_header_tone(
-                    header_short_high_x8, event.leader_pulses);
+                    header_short_high_x8, header_long_high_x8,
+                    event.leader_pulses);
             }
 
             if (!emit_header(logical_header)) return false;

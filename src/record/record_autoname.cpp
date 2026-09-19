@@ -218,46 +218,36 @@ static bool autoname_aux_payload_mode(void)
            (metadata_aux_profile != RECORD_AUTONAME_AUX_PROFILE_NONE);
 }
 
-/* Convert a calibrated logical-HIGH/physical-LOW short interval to the common
-   16 us * 8 reference.  This is shared by final speed classification and by
-   the cheap fast-leader AUX lock test; the latter calls it once per run. */
-static uint16_t metadata_normalize_mz_short_high_x8(uint16_t short_high_x8)
+/* Convert a calibrated logical-HIGH/physical-LOW interval to the common
+   16 us * 8 reference.  SHORT uses this for both final profile detection and
+   the cheap fast-leader AUX lock test; LONG uses the same scale. */
+static uint16_t metadata_normalize_mz_high_x8(uint16_t high_x8)
 {
-    uint32_t normalized = short_high_x8;
+    uint32_t normalized = high_x8;
 
     if ((metadata_format == FILE_FORMAT_WAV) &&
         (metadata_wav_sample_rate != 0U))
     {
-        normalized = ((uint32_t)short_high_x8 * 62500UL +
+        normalized = ((uint32_t)high_x8 * 62500UL +
                       (metadata_wav_sample_rate / 2UL)) /
                      metadata_wav_sample_rate;
     }
     else if (metadata_format == FILE_FORMAT_LEP)
     {
-        normalized = ((uint32_t)short_high_x8 * 50UL + 8UL) / 16UL;
+        normalized = ((uint32_t)high_x8 * 50UL + 8UL) / 16UL;
     }
 
     return (normalized > 0xFFFFUL) ? 0xFFFFU : (uint16_t)normalized;
 }
 
-/* Convert the decoder's format-specific units to the same 16 us reference
-   used by direct MZF recording, then classify the header pilot. */
-static loader_mode_t metadata_loader_mode_from_tone(uint16_t short_high_x8,
-                                                    uint16_t leader_pulses)
+static loader_mode_t metadata_loader_mode_from_short_only(
+    uint16_t short_high_x8, uint16_t leader_pulses)
 {
-    uint16_t normalized =
-        metadata_normalize_mz_short_high_x8(short_high_x8);
-    uint16_t d1;
-    uint16_t d2;
-    uint16_t d3;
-    uint16_t d4;
+    uint16_t d1 = metadata_difference_u16(short_high_x8, 120U);
+    uint16_t d2 = metadata_difference_u16(short_high_x8, 57U);
+    uint16_t d3 = metadata_difference_u16(short_high_x8, 44U);
+    uint16_t d4 = metadata_difference_u16(short_high_x8, 39U);
 
-    /* x8 L16 reference for logical HIGH: Normal 1:1 ~=119..120,
-       1:2 ~=57, 1:3 ~=44 and 1:4 ~=39. */
-    d1 = metadata_difference_u16(normalized, 120U);
-    d2 = metadata_difference_u16(normalized, 57U);
-    d3 = metadata_difference_u16(normalized, 44U);
-    d4 = metadata_difference_u16(normalized, 39U);
     if ((leader_pulses >= 8000U) && (leader_pulses <= 13000U) &&
         (d4 < d3) && (d4 < d2) && (d4 < d1))
     {
@@ -265,6 +255,49 @@ static loader_mode_t metadata_loader_mode_from_tone(uint16_t short_high_x8,
     }
     if ((d2 < d1) && (d2 <= d3)) return LOADER_MODE_NORMAL_1_2;
     if ((d3 < d1) && (d3 < d2)) return LOADER_MODE_NORMAL_1_3;
+    return LOADER_MODE_NORMAL_1_1;
+}
+
+/* The header mark guarantees a run of LONG logical-HIGH/physical-LOW pulses.
+   Combining that LONG timing with the leader SHORT timing preserves profile
+   separation after coarse LEP/L16 quantization.  Fall back to the old
+   SHORT-only rule only if no valid LONG mark timing was captured. */
+static loader_mode_t metadata_loader_mode_from_tone(uint16_t short_high_x8,
+                                                    uint16_t long_high_x8,
+                                                    uint16_t leader_pulses)
+{
+    uint16_t short_normalized =
+        metadata_normalize_mz_high_x8(short_high_x8);
+    uint16_t long_normalized =
+        metadata_normalize_mz_high_x8(long_high_x8);
+    uint16_t score1;
+    uint16_t score2;
+    uint16_t score3;
+    uint16_t score4;
+
+    if (short_normalized == 0U) return LOADER_MODE_NORMAL_1_1;
+    if (long_normalized == 0U)
+        return metadata_loader_mode_from_short_only(
+            short_normalized, leader_pulses);
+
+    /* Common x8 L16 reference for logical HIGH:
+       1:1 ~= 120/235, 1:2 ~= 57/117, 1:3 ~= 44/88, 1:4 ~= 39/79
+       (SHORT/LONG). */
+    score1 = (uint16_t)(metadata_difference_u16(short_normalized, 120U) +
+                        metadata_difference_u16(long_normalized, 235U));
+    score2 = (uint16_t)(metadata_difference_u16(short_normalized, 57U) +
+                        metadata_difference_u16(long_normalized, 117U));
+    score3 = (uint16_t)(metadata_difference_u16(short_normalized, 44U) +
+                        metadata_difference_u16(long_normalized, 88U));
+    score4 = (uint16_t)(metadata_difference_u16(short_normalized, 39U) +
+                        metadata_difference_u16(long_normalized, 79U));
+
+    if ((score4 < score3) && (score4 < score2) && (score4 < score1))
+        return LOADER_MODE_NORMAL_1_4;
+    if ((score2 < score1) && (score2 <= score3) && (score2 <= score4))
+        return LOADER_MODE_NORMAL_1_2;
+    if ((score3 < score1) && (score3 < score2) && (score3 <= score4))
+        return LOADER_MODE_NORMAL_1_3;
     return LOADER_MODE_NORMAL_1_1;
 }
 
@@ -852,6 +885,7 @@ static void autoname_take_decoder_event(void)
             {
                 metadata_loader_mode = metadata_loader_mode_from_tone(
                     mz_tape_decoder_get_header_short_high_x8(),
+                    mz_tape_decoder_get_header_long_high_x8(),
                     event.leader_pulses);
                 metadata_loader_valid = true;
                 metadata_start_payload(metadata_read_le16(header + 0x12U));
@@ -998,7 +1032,7 @@ static void autoname_mz_fast_probe_feed(uint16_t duration_units, uint8_t level)
         !mz_fast_reference_checked)
     {
         uint16_t normalized =
-            metadata_normalize_mz_short_high_x8(mz_fast_reference_x8);
+            metadata_normalize_mz_high_x8(mz_fast_reference_x8);
 
         mz_fast_reference_checked = true;
 

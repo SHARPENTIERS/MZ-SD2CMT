@@ -40,5 +40,6 @@ bool mz_tape_decoder_take_event(mz_tape_decoder_event_t *event);
 const uint8_t *mz_tape_decoder_get_header(void);
 uint8_t *mz_tape_decoder_get_data_scratch(void);
 uint16_t mz_tape_decoder_get_header_short_high_x8(void);
+uint16_t mz_tape_decoder_get_header_long_high_x8(void);
 
 #endif

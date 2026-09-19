@@ -2,7 +2,7 @@
 ## User Handbook
 
 **Extended SD-card CMT emulator / recorder for Sharp MZ computers**  
-**Handbook draft for firmware 0.9rc**
+**Handbook draft for firmware 1.0**
 
 > **Draft status**
 >
@@ -38,8 +38,7 @@
 18. [Recommended setups](#18-recommended-setups)
 19. [Troubleshooting](#19-troubleshooting)
 20. [Technical reference](#20-technical-reference)
-21. [Quick-reference card](#21-quick-reference-card)
-22. [Glossary](#22-glossary)
+21. [Glossary](#21-glossary)
 
 ---
 
@@ -697,7 +696,6 @@ For LEP, L16 or MZF the sample-rate suffix is not used.
 |PAUSED         M|
 +----------------+
 ```
-
 `M` means waiting on the Sharp MOTOR signal.
 
 ### AUTO mode, waiting for the first signal activity
@@ -1397,7 +1395,6 @@ It is useful to distinguish **three different spellings of the same function**:
 ### `UL`
 
 `UL` is the firmware shorthand for the **Ultra Fast loader/transfer path**.
-
 It is not simply “NORMAL at a still higher ratio”. A normal or turbo tape profile still generates a timing-based tape waveform. Ultra Fast changes the transfer method and uses the live CMT WRITE/SENSE handshake for the fast payload.
 
 Because the payload transfer is handshake-driven, its exact duration cannot be calculated in the same way as a normal generated tape. This is why an MZT selector can show:
@@ -2097,7 +2094,6 @@ GAME/
 ### MZT + MTI
 
 Use when you want:
-
 - all parts of one cassette/game kept together;
 - logical record order preserved;
 - one visible game file in the browser;
@@ -2735,7 +2731,7 @@ Example:
 
 ```text
 +----------------+
-|ABOUT v0.9rc    |
+|ABOUT v1.0      |
 |RAM 3120 MIN2870|
 +----------------+
 ```
@@ -3274,101 +3270,7 @@ This prevents a directory from appearing to contain duplicate user programs simp
 
 ---
 
-# 21. Quick-reference card
-
-The repository also contains a graphical quick guide:
-
-<p align="center">
-  <img src="quickguide.png" alt="MZ-SD2CMT2 quick guide" width="800">
-</p>
-
-## Browser
-
-```text
-FFWD short/hold  previous
-REW short/hold   next
-PLAY short       enter/select
-PLAY long        PLAY settings
-STOP short       parent
-STOP long        root / SYSTEM from root
-REC short        start recording
-REC long         RECORD settings
-```
-
-## PLAY
-
-```text
-PLAY             start / pause / resume
-STOP             back
-MZT + FFWD        previous logical record
-MZT + REW         next logical record
-```
-
-Pause reason:
-
-```text
-U = USER
-M = MOTOR
-```
-
-## RECORD
-
-```text
-PLAY             start if armed / pause / resume
-STOP short       stop + save
-STOP long        cancel + delete active capture
-```
-
-## Buffer
-
-```text
-high bar  = healthy
-low bar   = low safety margin
-
-PLAY   -> amount of queued data
-RECORD -> remaining free headroom
-```
-
-## Safe basic settings
-
-```text
-PLAY CTRL = MOTOR
-LOADER    = NORMAL
-SPEED     = 1:1
-```
-
-## Smart library settings
-
-```text
-PLAY CTRL = MOTOR
-LOADER    = AUTO
-```
-
-with:
-
-```text
-GAME.MZF + GAME.MFI
-TAPE.MZT + TAPE.MTI
-```
-
-## Direct Sharp save
-
-```text
-REC TYPE = MZF
-REC MODE = MOTOR
-AUTONAME = ON
-```
-
-## WAV caution
-
-```text
-WAV + AutoName:
-supported up to 1:2
-```
-
----
-
-# 22. Glossary
+# 21. Glossary
 
 ### AutoName
 Live header recognition used to derive a meaningful filename and optional detected profile from a recording.
@@ -3484,5 +3386,4 @@ The following improvements are recommended before publishing a polished PDF:
 
 **Project:** MZ-SD2CMT2 – Reborn  
 **Repository:** `bales0/MZ-SD2CMT2-Reborn`  
-**Firmware documented:** 0.9rc  
 **Document status:** Draft for review

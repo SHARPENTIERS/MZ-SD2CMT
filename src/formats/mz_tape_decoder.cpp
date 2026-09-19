@@ -21,6 +21,12 @@
 #define LEADER_8_DURATION_MAX 31U
 #define LEADER_LOCK_PULSES 256U
 
+/* A valid Sharp mark starts with at least MIN_MARK_PULSES LONG pulses.  Sample
+   only the first few while the decoder is already outside the leader hot path.
+   This makes LONG timing available for profile detection without adding work
+   to the locked 256-pulse leader path or to the data stream. */
+#define HEADER_LONG_SAMPLE_LIMIT 16U
+
 typedef enum
 {
     DECODE_SEARCH_LEADER = 0,
@@ -63,6 +69,7 @@ static uint8_t header_buffer[MZ_TAPE_HEADER_BYTES];
 static uint8_t data_scratch[MZ_TAPE_HEADER_BYTES];
 static const uint8_t *validated_header = NULL;
 static uint16_t validated_short_x8 = 0U;
+static uint16_t validated_long_x8 = 0U;
 static mz_tape_decoder_event_t pending_event;
 
 static uint8_t popcount8(uint8_t value)
@@ -79,6 +86,8 @@ static uint8_t popcount8(uint8_t value)
 static void reset_decoder(pulse_decoder_t *decoder, uint16_t seed_units)
 {
     if (decoder == NULL) return;
+    if (decoder_mode == DECODER_MODE_HEADER)
+        validated_long_x8 = 0U;
     decoder->state = DECODE_SEARCH_LEADER;
     decoder->short_x8 = (seed_units <= MAX_HALF_UNITS) ?
         (uint16_t)(seed_units * 8U) : 0U;
@@ -209,6 +218,47 @@ void lock_leader_window(pulse_decoder_t *decoder)
 
     decoder->mark_pulses = (uint8_t)((low_scaled + 7U) >> 3U);
     decoder->final_pulses = (uint8_t)(high_scaled >> 3U);
+}
+
+/* During DECODE_MARK_LONG checksum is still unused, so reuse it as the
+   running LONG x8 average. final_pulses is likewise free in that state and is
+   reused as the sample count.  No pulse_decoder_t SRAM growth is required. */
+static inline void sample_header_mark_long(pulse_decoder_t *decoder,
+                                           uint16_t duration_units)
+{
+    uint16_t scaled;
+    uint16_t average;
+    uint16_t difference;
+
+    if ((decoder == NULL) ||
+        (decoder_mode != DECODER_MODE_HEADER) ||
+        (decoder->final_pulses >= HEADER_LONG_SAMPLE_LIMIT))
+    {
+        return;
+    }
+
+    scaled = (uint16_t)(duration_units << 3U);
+    if (decoder->final_pulses == 0U)
+    {
+        decoder->checksum = scaled;
+        decoder->final_pulses = 1U;
+        return;
+    }
+
+    average = decoder->checksum;
+    if (scaled >= average)
+    {
+        difference = (uint16_t)(scaled - average);
+        decoder->checksum = (uint16_t)
+            (average + ((difference + 4U) >> 3U));
+    }
+    else
+    {
+        difference = (uint16_t)(average - scaled);
+        decoder->checksum = (uint16_t)
+            (average - ((difference + 3U) >> 3U));
+    }
+    decoder->final_pulses++;
 }
 
 static int8_t classify_pulse(const pulse_decoder_t *decoder,
@@ -409,6 +459,9 @@ static void feed_pulse(pulse_decoder_t *decoder, uint16_t duration_units)
         {
             decoder->state = DECODE_MARK_LONG;
             decoder->mark_pulses = 1U;
+            decoder->final_pulses = 0U;
+            decoder->checksum = 0U;
+            sample_header_mark_long(decoder, duration_units);
             return;
         }
         reset_decoder(decoder, duration_units);
@@ -426,11 +479,15 @@ static void feed_pulse(pulse_decoder_t *decoder, uint16_t duration_units)
         if (pulse_class == 1)
         {
             if (decoder->mark_pulses != 0xFFU) decoder->mark_pulses++;
+            sample_header_mark_long(decoder, duration_units);
             return;
         }
         if ((decoder->mark_pulses >= MIN_MARK_PULSES) &&
             (decoder->mark_pulses <= MAX_MARK_PULSES))
         {
+            validated_long_x8 = decoder->checksum;
+            decoder->checksum = 0U;
+            decoder->final_pulses = 0U;
             decoder->state = DECODE_MARK_SHORT;
             decoder->mark_pulses = 1U;
             return;
@@ -477,6 +534,7 @@ void mz_tape_decoder_begin_header(void)
     decoder_mode = DECODER_MODE_HEADER;
     validated_header = NULL;
     validated_short_x8 = 0U;
+    validated_long_x8 = 0U;
     pending_event.type = MZ_TAPE_DECODER_EVENT_NONE;
     decoder.expected_bytes = MZ_TAPE_HEADER_BYTES;
     reset_decoder(&decoder, 0U);
@@ -593,4 +651,9 @@ uint8_t *mz_tape_decoder_get_data_scratch(void)
 uint16_t mz_tape_decoder_get_header_short_high_x8(void)
 {
     return validated_short_x8;
+}
+
+uint16_t mz_tape_decoder_get_header_long_high_x8(void)
+{
+    return validated_long_x8;
 }

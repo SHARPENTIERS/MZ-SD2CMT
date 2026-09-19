@@ -1220,6 +1220,7 @@ static bool sdcard_parse_record_sequence(const char *name, uint16_t *sequence)
 bool sdcard_ensure_directory(const char *directory_path)
 {
     FsFile directory;
+    bool mkdir_ok;
 
     if ((directory_path == NULL) || (directory_path[0] != '/') ||
         (directory_path[1] == '\0'))
@@ -1233,24 +1234,78 @@ bool sdcard_ensure_directory(const char *directory_path)
         return false;
     }
 
-    if (!sd.exists(directory_path) && !sd.mkdir(directory_path, true))
+    /*
+        Fast/common path: the RECORDINGS directory normally already exists.
+        Open it directly instead of using exists(). A transient FAT/SPI miss
+        from exists() must never be interpreted as proof that the directory is
+        absent and immediately turned into mkdir().
+    */
+    if (directory.open(directory_path, O_RDONLY))
     {
-        if (!sdcard_probe_present())
+        if (!directory.isDir())
         {
+            directory.close();
+            sdcard_set_error_P(PSTR("NOT DIR"));
             return false;
         }
-        sdcard_set_error_P(PSTR("MKDIR FAIL"));
+
+        directory.close();
+        sdcard_clear_soft_probe_failures();
+        sdcard_set_ok();
+        return true;
+    }
+
+    /*
+        The first open can fail transiently even while the card is healthy.
+        Confirm card liveness and retry the open once before modifying FAT.
+    */
+    if (!sdcard_probe_present())
+    {
         return false;
     }
 
+    if (directory.open(directory_path, O_RDONLY))
+    {
+        if (!directory.isDir())
+        {
+            directory.close();
+            sdcard_set_error_P(PSTR("NOT DIR"));
+            return false;
+        }
+
+        directory.close();
+        sdcard_clear_soft_probe_failures();
+        sdcard_set_ok();
+        return true;
+    }
+
+    /*
+        Two directory opens failed while the card still appears alive, so the
+        directory may genuinely be absent. Try to create it.
+
+        mkdir()==false is not by itself an error: the directory may already
+        exist and the preceding opens may only have been transient failures.
+        The authoritative result is whether the path can be opened afterwards.
+    */
+    mkdir_ok = sd.mkdir(directory_path, true);
+
     if (!directory.open(directory_path, O_RDONLY))
     {
+        /*
+            If the card is really gone, report the SD/card error rather than a
+            misleading MKDIR/DIR error. Otherwise retry the directory open once.
+        */
         if (!sdcard_probe_present())
         {
             return false;
         }
-        sdcard_set_error_P(PSTR("DIR FAIL"));
-        return false;
+
+        if (!directory.open(directory_path, O_RDONLY))
+        {
+            sdcard_set_error_P(mkdir_ok ? PSTR("DIR FAIL") :
+                                                PSTR("MKDIR FAIL"));
+            return false;
+        }
     }
 
     if (!directory.isDir())
