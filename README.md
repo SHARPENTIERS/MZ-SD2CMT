@@ -35,6 +35,7 @@ The dedicated version remains based on the same core CMT interface, but adds con
 - independent loader/profile selection for every logical record inside an MZT
 - browser `I` indicator when matching MFI/MTI playback information is available
 - MFI/MTI files hidden from normal browser entry counts and sorting
+- preparation and conversion of **MZF, MZT, LEP, L16 and WAV** files, including matching **MFI/MTI** metadata is possible with [Extended QDTool](https://github.com/bales0/QDTool)
 - automatic sound-monitor activity during physical tape waveform playback/recording
 - persistent hardware, playback and recording settings stored in EEPROM
 - SD-card insertion/removal handling on supported dedicated hardware
@@ -207,6 +208,38 @@ changes to:
 when matching playback information exists for the highlighted MZF/MZT.
 
 For MZT, the same `I` convention is also used in the logical record counter when MTI information is available.
+
+## Preparing files with Extended QDTool
+
+The companion [**Extended QDTool**](https://github.com/bales0/QDTool) can be used on a PC to prepare files for MZ-SD2CMT2.
+
+In its Advanced mode it can:
+
+- create and edit **MZF** and multi-record **MZT** images
+- export tape waveforms as **LEP**, **L16** or **44.1 kHz WAV**
+- assign a **Loader** and **Speed** profile to individual records before waveform export
+- generate matching **MFI** sidecars when saving MZF files
+- generate matching **MTI** sidecars with per-record profiles when saving MZT files
+- combine several records into one waveform output or export them separately
+- import supported WAV/LEP/L16 tape captures and map recognized NORMAL, MZ700, IC and TC timing profiles back to record metadata
+
+This makes Extended QDTool the recommended desktop utility for preparing an SD-card library when files need to be converted, grouped into MZT containers, assigned a specific playback profile, or supplied together with MFI/MTI information for `LOADER=AUTO`.
+
+Typical workflow:
+
+```text
+MZF files
+   |
+   +--> assign Loader / Speed in Extended QDTool
+   |
+   +--> save as MZF + MFI
+   |
+   +--> combine as MZT + MTI
+   |
+   +--> or export as LEP / L16 / WAV
+```
+
+The waveform exporters use the selected record profiles. Static waveform export supports the NORMAL, MZ700, IC and TC families implemented by QDTool; Ultra Fast profiles require the live CMT handshake and therefore are not exported as a static LEP/L16/WAV waveform.
 
 ## Recording overview
 
