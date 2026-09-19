@@ -302,6 +302,15 @@ static bool sdcard_initialize(bool force_reinitialize)
 
     sdcard_close_all_files();
     sdcard_mounted = false;
+
+    /* An explicit retry must discard the complete previous SdFat/card/volume
+       state before begin() makes a genuinely new initialization attempt. */
+    if (force_reinitialize)
+    {
+        sd.end();
+        sdcard_detect_clear_pending();
+    }
+
     sdcard_clear_soft_probe_failures();
     sdcard_set_error_P(PSTR("SD CARD ERROR"));
     sdcard_error_code = 0U;
@@ -325,18 +334,10 @@ static bool sdcard_initialize(bool force_reinitialize)
 
     sdcard_mounted = true;
     sdcard_clear_soft_probe_failures();
-
-    /*
-        Keep a software liveness confirmation after begin(), but make it
-        tolerant.  A first transient CID miss therefore no longer invalidates
-        an otherwise successful SdFat initialization.
-    */
-    if (!sdcard_probe_present())
-    {
-        return false;
-    }
-
     sdcard_set_ok();
+
+    /* begin() is sufficient proof that the card is present and usable.  The
+       detect pin is only resynchronized for later debounced edge handling. */
     sdcard_detect_reset_to_current();
     return true;
 }

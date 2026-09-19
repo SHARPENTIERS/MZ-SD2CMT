@@ -392,10 +392,16 @@ static void browser_refresh_sd(void)
 {
     set_status_message_P(PSTR("SD INIT"));
 
+    /* sd.begin() may wait for its card-initialization timeout.  Render the
+       acknowledgement first so a failed retry cannot look like an ignored
+       RECORD press after the short status-message timer has already expired. */
+    browser_render();
+
     /* A card retry deliberately discards the former path and selection.  The
        media may have been replaced, so root and its first alphabetical item
        are the only deterministic restart point. */
     sd_ok = sdcard_reinitialize();
+    browser_clear_status();
     browser_open_root_after_sd_init();
 }
 
@@ -1004,16 +1010,8 @@ void browser_render(void)
     {
         lcd_set_cursor(0, 0);
         lcd_print(status_message);
-        if (sd_ok)
-        {
-            lcd_set_cursor(0, 1);
-            lcd_print_P(PSTR("                "));
-        }
-        else
-        {
-            lcd_set_cursor(0, 1);
-            lcd_print_P(PSTR("RECORD=RETRY    "));
-        }
+        lcd_set_cursor(0, 1);
+        lcd_print_P(PSTR("                "));
         return;
     }
 
