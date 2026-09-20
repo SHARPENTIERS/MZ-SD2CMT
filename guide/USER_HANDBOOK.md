@@ -135,8 +135,8 @@ Insert the card and switch on MZ-SD2CMT2.
 The five front-panel buttons correspond to:
 
 ```text
-FFWD     = up / previous
-REWIND   = down / next
+REWIND   = up / previous
+FFWD     = down / next
 STOP     = back
 RECORD   = record
 PLAY     = select / play
@@ -199,8 +199,8 @@ The firmware maps them as follows:
 
 | Physical label | Logical function | Typical browser function |
 |---|---|---|
-| **FFWD** | UP | previous item |
-| **REWIND** | DOWN | next item |
+| **REWIND** | UP | previous item |
+| **FFWD** | DOWN | next item |
 | **STOP** | LEFT / BACK | parent / back |
 | **RECORD** | RIGHT | start recording |
 | **PLAY** | SELECT | open / play / confirm |
@@ -211,8 +211,8 @@ The exact action depends on the current screen.
 
 | Button | Short press | Long press |
 |---|---|---|
-| FFWD | previous entry | repeated scrolling while held |
-| REWIND | next entry | repeated scrolling while held |
+| REWIND | previous entry | repeated scrolling while held |
+| FFWD | next entry | repeated scrolling while held |
 | STOP | parent directory | from a subdirectory: root; from root: SYSTEM menu |
 | RECORD | start recording with current settings | open RECORD settings |
 | PLAY | enter directory or select file | open PLAY settings |
@@ -223,8 +223,8 @@ The exact action depends on the current screen.
 |---|---|
 | PLAY | start / pause / resume |
 | STOP | stop and return; in MZT, first returns to the MZT record selector |
-| FFWD | previous MZT record while the MZT selector is active |
-| REWIND | next MZT record while the MZT selector is active |
+| REWIND | previous MZT record while the MZT selector is active |
+| FFWD | next MZT record while the MZT selector is active |
 
 ## 4.3 RECORD screen
 
@@ -887,8 +887,8 @@ The browser displays only user-relevant media entries. Playback metadata such as
 
 ## 6.1 Moving through entries
 
-- FFWD = previous
-- REWIND = next
+- REWIND = previous
+- FFWD = next
 - holding either button repeats
 - moving past the first/last entry wraps around
 
@@ -1939,8 +1939,8 @@ Example:
 
 Use:
 
-- FFWD = previous record
-- REWIND = next record
+- REWIND = previous record
+- FFWD = next record
 - PLAY = confirm/start
 - STOP = return to browser
 
@@ -2754,8 +2754,8 @@ MZ-SD2CMT2 therefore supports button calibration.
 Calibration maps:
 
 ```text
-FFWD   -> UP
-REWIND -> DOWN
+REWIND -> UP
+FFWD   -> DOWN
 STOP   -> LEFT
 RECORD -> RIGHT
 PLAY   -> SELECT
@@ -2790,8 +2790,8 @@ The unit measures the no-button ADC level.
 It then asks for each button:
 
 ```text
-PRESS FFWD
 PRESS REWIND
+PRESS FFWD
 PRESS STOP
 PRESS RECORD
 PRESS PLAY

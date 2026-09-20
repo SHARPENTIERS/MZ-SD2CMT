@@ -138,8 +138,8 @@ static bool run_keypad_calibration(keypad_calibration_t *calibration)
     lcd_print_line_P(1U, PSTR("CALIBRATION"));
     delay(1200);
     calibration->none = calibrate_none();
-    calibration->up = calibrate_button(PSTR("FFWD"), calibration->none);
-    calibration->down = calibrate_button(PSTR("REWIND"), calibration->none);
+    calibration->up = calibrate_button(PSTR("REWIND"), calibration->none);
+    calibration->down = calibrate_button(PSTR("FFWD"), calibration->none);
     calibration->left = calibrate_button(PSTR("STOP"), calibration->none);
     calibration->right = calibrate_button(PSTR("RECORD"), calibration->none);
     calibration->select = calibrate_button(PSTR("PLAY"), calibration->none);

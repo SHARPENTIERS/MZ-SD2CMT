@@ -11,8 +11,8 @@ This guide contains the basic controls and everyday operating steps only.
 
 | Button | Basic function |
 |---|---|
-| **FFWD** | previous / up |
-| **REWIND** | next / down |
+| **REWIND** | previous / up |
+| **FFWD** | next / down |
 | **STOP** | back / stop |
 | **RECORD** | record |
 | **PLAY** | select / play / confirm |
@@ -23,8 +23,8 @@ This guide contains the basic controls and everyday operating steps only.
 
 | Action | Control |
 |---|---|
-| Previous item | **FFWD** |
-| Next item | **REWIND** |
+| Previous item | **REWIND** |
+| Next item | **FFWD** |
 | Enter folder / select file | short **PLAY** |
 | Open PLAY settings | long **PLAY** |
 | Go to parent folder | short **STOP** |
@@ -83,8 +83,8 @@ Opening an MZT first shows its record selector.
 
 | Action | Control |
 |---|---|
-| Previous record | **FFWD** |
-| Next record | **REWIND** |
+| Previous record | **REWIND** |
+| Next record | **FFWD** |
 | Play selected record | **PLAY** |
 | Return to browser | **STOP** |
 
@@ -256,8 +256,8 @@ The ABOUT screen shows firmware version 1.0.
 ## Most important shortcuts
 
 ```text
-FFWD          previous
-REWIND        next
+REWIND        previous
+FFWD          next
 PLAY short    select / play
 PLAY long     PLAY settings
 STOP short    back / stop / save recording

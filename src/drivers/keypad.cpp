@@ -13,8 +13,8 @@
 static keypad_calibration_t keypad_calibration =
 {
     1015, // none
-    134,  // up
-    309,  // down
+    309,  // up (REWIND)
+    134,  // down (FFWD)
     479,  // left
     0,    // right
     719   // select
@@ -340,8 +340,8 @@ void keypad_get_default_calibration(keypad_calibration_t *calibration)
 
     calibration->none = 1015;
 
-    calibration->up = 134;
-    calibration->down = 309;
+    calibration->up = 309;
+    calibration->down = 134;
     calibration->left = 479;
     calibration->right = 0;
     calibration->select = 719;

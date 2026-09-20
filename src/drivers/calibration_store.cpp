@@ -13,7 +13,9 @@
 #define SYSTEM_SETTINGS_STORE_ADDR 64
 
 #define CALIBRATION_MAGIC 0x5344324BUL
-#define CALIBRATION_VERSION 1
+/* Version 2 swaps the FFWD/REWIND semantic mapping.  Reject version 1 so an
+   existing device cannot silently retain the old reversed button mapping. */
+#define CALIBRATION_VERSION 2
 #define PLAY_SETTINGS_MAGIC 0x5344504CUL
 #define PLAY_SETTINGS_VERSION 1
 #define RECORD_SETTINGS_MAGIC 0x53445243UL

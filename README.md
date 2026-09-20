@@ -108,8 +108,8 @@ The selector shows:
 Controls:
 
 ```text
-FFWD   = previous record
-REWIND = next record
+REWIND = previous record
+FFWD   = next record
 PLAY   = confirm/start selected record
 STOP   = return to main browser
 ```
