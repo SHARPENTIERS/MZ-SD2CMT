@@ -1,0 +1,29 @@
+#ifndef SD2CMT2_LOADER_MODE_H
+#define SD2CMT2_LOADER_MODE_H
+
+#include <stdint.h>
+
+typedef enum
+{
+    LOADER_MODE_NORMAL_1_1 = 0,
+    LOADER_MODE_AUTO,
+    LOADER_MODE_UL,
+    LOADER_MODE_UL_MZ800,
+    LOADER_MODE_UL_MZ700,
+    LOADER_MODE_MZ700_3X,
+    LOADER_MODE_IC_1_4,
+    LOADER_MODE_IC_1_3,
+    LOADER_MODE_IC_1_2,
+    LOADER_MODE_TC_1_3,
+    LOADER_MODE_TC_1_2,
+    LOADER_MODE_NORMAL_1_2,
+    LOADER_MODE_NORMAL_1_3,
+    LOADER_MODE_MZ700_1X,
+    LOADER_MODE_NORMAL_1_4,
+    /* Append-only: loader_mode is persisted in EEPROM. */
+    LOADER_MODE_IC_1_1,
+    LOADER_MODE_TC_1_1,
+    LOADER_MODE_COUNT
+} loader_mode_t;
+
+#endif
