@@ -46,6 +46,13 @@ typedef enum
 
 void mzf_loader_reset(void);
 
+/* Optional record-data source used by container formats whose payload is not
+   byte-contiguous in the backing file (for example an MFM QuickDisk track). */
+typedef bool (*mzf_loader_source_seek_t)(uint32_t position);
+typedef int16_t (*mzf_loader_source_read_t)(void *buffer, uint16_t size);
+void mzf_loader_set_source_io(mzf_loader_source_seek_t seek_fn,
+                              mzf_loader_source_read_t read_fn);
+
 bool mzf_loader_prepare(file_format_t format,
                            loader_mode_t mode,
                            const uint8_t *header,

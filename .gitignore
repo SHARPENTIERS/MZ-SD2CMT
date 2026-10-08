@@ -7,6 +7,6 @@ platformio.exe
 specification/
 tests/
 tools/
-
+/verification
 .fake
 /specification

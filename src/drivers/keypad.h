@@ -57,6 +57,14 @@ button_t keypad_get_button(void);
 
 button_event_t keypad_get_event(void);
 
+/* Discard the currently held key and its release. Used when a synchronous
+   operation consumes STOP directly instead of through the event queue. */
+void keypad_ignore_until_release(void);
+
+/* Resume the current UP/DOWN repeat timer after synchronous navigation.
+   Keeps the initial delay/repeat phase and does not discard the next press. */
+void keypad_restart_repeat_timer(void);
+
 void keypad_set_calibration(const keypad_calibration_t *calibration);
 
 void keypad_get_default_calibration(keypad_calibration_t *calibration);

@@ -3,6 +3,6 @@
 
 /* Development firmware version shown in SYSTEM -> ABOUT.
    Keep the complete text short enough for the 16-character LCD line. */
-#define SD2CMT2_VERSION "1.0"
+#define SD2CMT2_VERSION "2.0.3"
 
 #endif

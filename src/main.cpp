@@ -13,6 +13,7 @@
 #include "drivers/ram_monitor.h"
 
 #include "play/play_controller.h"
+#include "play/mzf_playback.h"
 #include "ui/browser.h"
 #include "ui/menu.h"
 #include "ui/record_menu.h"
@@ -41,6 +42,7 @@ static uint16_t last_lcd_update_ms = 0U;
 static uint16_t last_active_keypad_poll_ms = 0U;
 static bool sd_ok = false;
 static app_screen_t current_screen = APP_SCREEN_BROWSER;
+static bool qd_cancel_during_enter = false;
 
 /* Fixed root-level destination copied from flash only when RECORD starts. */
 static const char recordings_directory_P[] PROGMEM = "/RECORDINGS";
@@ -167,19 +169,45 @@ static bool run_keypad_calibration(keypad_calibration_t *calibration)
 
 static void app_enter_browser(void)
 {
-    browser_restore_saved_position();
+    /* UI return retains RAM state; only filesystem changes need a refresh. */
+    browser_resume();
     current_screen = APP_SCREEN_BROWSER;
     lcd_clear();
+}
+
+static void app_qd_analysis_progress(uint8_t percent)
+{
+    if (percent == MZF_QD_PROGRESS_LOADING)
+        play_screen_show_qd_preparing();
+    else
+        play_screen_show_qd_loading(percent);
+}
+
+static bool app_qd_analysis_cancel_requested(void)
+{
+    if (keypad_get_button() != BUTTON_LEFT) return false;
+    if (current_screen == APP_SCREEN_BROWSER) qd_cancel_during_enter = true;
+    keypad_ignore_until_release();
+    return true;
 }
 
 static void app_enter_play(const char *filename, const char *directory_path)
 {
     browser_save_position();
     browser_clear_status();
+    qd_cancel_during_enter = false;
+    if (file_format_detect_from_name(filename) == FILE_FORMAT_MZQ)
+        play_screen_show_qd_loading(0U);
     play_controller_start_session(filename, directory_path,
                                   menu_get_invert_signal(),
                                   menu_get_loader_mode(),
                                   menu_get_play_control_mode());
+    if (qd_cancel_during_enter)
+    {
+        play_controller_stop();
+        app_enter_browser();
+        return;
+    }
     current_screen = APP_SCREEN_PLAY;
     lcd_clear();
 }
@@ -249,6 +277,10 @@ static void app_handle_record_event(button_event_t event)
 {
     record_screen_action_t action = record_screen_handle_event(event);
     record_engine_state_t state = record_engine_get_state();
+    const char *error = record_engine_get_error_text();
+    const bool filesystem_error = (state == RECORD_ENGINE_ERROR) &&
+        ((strcmp_P(error, PSTR("MKDIR FAIL")) == 0) ||
+         (strcmp_P(error, PSTR("DIR FAIL")) == 0));
 
     if (action == RECORD_SCREEN_ACTION_TOGGLE_PAUSE)
     {
@@ -273,13 +305,26 @@ static void app_handle_record_event(button_event_t event)
                  (state == RECORD_ENGINE_ERROR) ||
                  (state == RECORD_ENGINE_STOPPED))
         {
-            browser_refresh();
+            if (filesystem_error)
+            {
+                browser_recover_sd();
+            }
+            else
+            {
+                browser_refresh();
+            }
             app_enter_browser();
         }
         return;
     }
     if (action == RECORD_SCREEN_ACTION_CANCEL_BACK)
     {
+        if (filesystem_error)
+        {
+            browser_recover_sd();
+            app_enter_browser();
+            return;
+        }
         if ((state == RECORD_ENGINE_ARMED) ||
             (state == RECORD_ENGINE_RECORDING) ||
             (state == RECORD_ENGINE_PAUSED) ||
@@ -332,6 +377,8 @@ void setup()
     menu_init();
     record_menu_init();
     play_controller_init();
+    mzf_playback_set_qd_analysis_callbacks(app_qd_analysis_progress,
+                                           app_qd_analysis_cancel_requested);
     record_engine_init();
     current_screen = APP_SCREEN_BROWSER;
     lcd_clear();

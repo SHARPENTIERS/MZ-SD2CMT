@@ -44,13 +44,22 @@ bool file_format_is_sharp_tape(file_format_t format)
 {
     return (format == FILE_FORMAT_MZF) ||
            (format == FILE_FORMAT_MZT) ||
+           (format == FILE_FORMAT_MZQ) ||
            (format == FILE_FORMAT_M12);
+}
+
+bool file_format_is_record_container(file_format_t format)
+{
+    return (format == FILE_FORMAT_MZT) || (format == FILE_FORMAT_MZQ);
 }
 
 file_format_t file_format_detect_from_name(const char *filename)
 {
     if (extension_equals_P(filename, PSTR(".MZF"))) return FILE_FORMAT_MZF;
     if (extension_equals_P(filename, PSTR(".MZT"))) return FILE_FORMAT_MZT;
+    if (extension_equals_P(filename, PSTR(".MZQ"))) return FILE_FORMAT_MZQ;
+    if (extension_equals_P(filename, PSTR(".QD"))) return FILE_FORMAT_MZQ;
+    if (extension_equals_P(filename, PSTR(".QDF"))) return FILE_FORMAT_MZQ;
     if (extension_equals_P(filename, PSTR(".M12"))) return FILE_FORMAT_M12;
     if (extension_equals_P(filename, PSTR(".LEP"))) return FILE_FORMAT_LEP;
     if (extension_equals_P(filename, PSTR(".L16"))) return FILE_FORMAT_L16;

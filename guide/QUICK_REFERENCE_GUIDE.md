@@ -1,7 +1,7 @@
 # MZ-SD2CMT2 – Reborn
 ## Quick Reference Guide
 
-**Firmware 1.0**
+**Firmware 2.0.2**
 
 This guide contains the basic controls and everyday operating steps only.
 
@@ -68,18 +68,33 @@ LOADER    = NORMAL
 SPEED     = 1:1
 ```
 
-If your library contains matching MFI/MTI information, use:
+If your library contains matching MFI/M2I/MTI information, use:
 
 ```text
 PLAY CTRL = MOTOR
 LOADER    = AUTO
 ```
 
+Exact companions: MZF -> MFI, M12 -> M2I, MZT -> MTI. M2I uses MFI syntax;
+there is no cross-format lookup. Manual selection wins. Compatible M12 files
+support the same loaders as MZF. An unsafe generated/turbo/UL request falls
+back to complete NORMAL 1:1 timing for all Sharp files, including physical
+QD; READY/selector shows the effective profile. Metadata files are hidden.
+
+For an IC 1:2 M12 example, copy [EXAMPLE.M2I](../examples/EXAMPLE.M2I) beside
+your tape and rename it to the same basename (`GAME.M12` + `GAME.M2I`).
+See [all sidecar templates](../examples/README.md).
+
 ---
 
-## MZT multi-record files
+## MZT, MZQ, QDF and QD multi-record images
 
-Opening an MZT first shows its record selector.
+Opening an MZT, MZQ, QDF or QD first shows its record selector. A QuickDisk entry is
+played as one MZF-style tape record; the image itself remains read-only. QD
+format selection is automatic for logical QDF/MZQ, HxC and FlashFloppy images.
+QDF and physical images show `QD SCAN n% / STOP=CANCEL` during their initial scan.
+Press **STOP** to cancel the scan and return to the SD-card browser. Up to 50
+files can be imported from one QuickDisk image.
 
 | Action | Control |
 |---|---|
@@ -88,7 +103,10 @@ Opening an MZT first shows its record selector.
 | Play selected record | **PLAY** |
 | Return to browser | **STOP** |
 
-During MZT playback, **STOP** first returns to the MZT record selector. Press **STOP** again to return to the main browser.
+During container playback, **STOP** first returns to the record selector. Press **STOP** again to return to the main browser.
+
+QuickDisk images are read-only. MFI/M2I/MTI sidecars do not apply to them; with
+`LOADER=AUTO`, playback uses the safe `NORMAL 1:1` fallback.
 
 ---
 
@@ -98,7 +116,7 @@ During MZT playback, **STOP** first returns to the MZT record selector. Press **
 |---|---|
 | **PLAY** | start / pause / resume |
 | **STOP** | stop / back |
-| **FFWD / REWIND** | select MZT record when the MZT selector is open |
+| **FFWD / REWIND** | select an MZT/MZQ/QDF/QD record when its selector is open |
 
 Common display states:
 
@@ -249,7 +267,14 @@ PLAY          = change / confirm
 STOP          = return
 ```
 
-The ABOUT screen shows firmware version 1.0.
+The ABOUT screen shows firmware version 2.0.
+
+---
+
+## Preparing files on a PC
+
+[MZTools](https://github.com/bales0/MZTools) can prepare and convert MZF/MZT
+files, generate MFI/MTI metadata and export LEP/L16/WAV waveforms.
 
 ---
 

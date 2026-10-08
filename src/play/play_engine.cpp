@@ -104,7 +104,7 @@ static void play_engine_sync_mzt_record(bool restart_if_running)
 {
     uint16_t record_index;
 
-    if (prepared_format != FILE_FORMAT_MZT) return;
+    if (!file_format_is_record_container(prepared_format)) return;
     record_index = mzf_playback_get_mzt_record_index();
     if (record_index == 0U) return;
 
@@ -198,7 +198,7 @@ static bool play_engine_sync_finished_backend(void)
         {
             return false;
         }
-        if (prepared_format == FILE_FORMAT_MZT)
+        if (file_format_is_record_container(prepared_format))
         {
             play_engine_sync_mzt_record(false);
         }
@@ -305,19 +305,19 @@ static bool play_engine_prepare_mzf(void)
 
     prepared_loader_from_info_sidecar = false;
 
-    /* Manual PLAY selection has priority. AUTO reads same-basename .MFI for
-       a single MZF. MZT resolves each internal record from .MTI in
-       mzf_playback. M12 has no sidecar and uses NORMAL MZ800 1:1. */
+    /* Manual selection wins. Single records use MFI (MZF) or M2I (M12);
+       MZT resolves each record from MTI in mzf_playback. */
     if (effective_loader_mode == LOADER_MODE_AUTO)
     {
-        if (prepared_format == FILE_FORMAT_MZF)
+        if ((prepared_format == FILE_FORMAT_MZF) ||
+            (prepared_format == FILE_FORMAT_M12))
         {
             effective_loader_mode = LOADER_MODE_NORMAL_1_1;
             prepared_loader_from_info_sidecar =
-                mzi_sidecar_read_loader_for_mzf(
-                    prepared_full_path, &effective_loader_mode);
+                mzi_sidecar_read_loader_for_tape(
+                    prepared_full_path, prepared_format, &effective_loader_mode);
         }
-        else if (prepared_format != FILE_FORMAT_MZT)
+        else if (!file_format_is_record_container(prepared_format))
         {
             effective_loader_mode = LOADER_MODE_NORMAL_1_1;
         }
@@ -457,9 +457,11 @@ bool play_engine_start(void)
     {
         if (!mzf_playback_start())
         {
-            play_engine_set_error(mzf_playback_get_error_text());
+            if (!mzf_playback_qd_load_was_cancelled())
+                play_engine_set_error(mzf_playback_get_error_text());
             return false;
         }
+        total_duration_ms = mzf_playback_get_total_duration_ms();
     }
     else if (prepared_format == FILE_FORMAT_TAP)
     {
@@ -524,7 +526,7 @@ bool play_engine_pause(void)
         return false;
     }
 
-    if (prepared_format == FILE_FORMAT_MZT)
+    if (file_format_is_record_container(prepared_format))
     {
         play_engine_sync_mzt_record(false);
     }
@@ -575,7 +577,7 @@ bool play_engine_resume(void)
         return false;
     }
 
-    if (prepared_format == FILE_FORMAT_MZT)
+    if (file_format_is_record_container(prepared_format))
     {
         play_engine_sync_mzt_record(false);
     }
@@ -643,7 +645,7 @@ void play_engine_service(void)
     if (file_format_is_sharp_tape(prepared_format))
     {
         mzf_playback_service();
-        if (prepared_format == FILE_FORMAT_MZT)
+        if (file_format_is_record_container(prepared_format))
         {
             play_engine_sync_mzt_record(true);
         }
@@ -780,37 +782,37 @@ bool play_engine_is_ul_loader_active(void)
 
 uint16_t play_engine_get_mzt_record_index(void)
 {
-    return (prepared_format == FILE_FORMAT_MZT) ?
+    return file_format_is_record_container(prepared_format) ?
         mzf_playback_get_mzt_record_index() : 0U;
 }
 
 uint16_t play_engine_get_prepared_mzt_record_index(void)
 {
-    return (prepared_format == FILE_FORMAT_MZT) ?
+    return file_format_is_record_container(prepared_format) ?
         prepared_mzt_record_index : 0U;
 }
 
 uint16_t play_engine_get_mzt_record_count(void)
 {
-    return (prepared_format == FILE_FORMAT_MZT) ?
+    return file_format_is_record_container(prepared_format) ?
         mzf_playback_get_mzt_record_count() : 0U;
 }
 
 const char *play_engine_get_mzt_record_title(void)
 {
-    return (prepared_format == FILE_FORMAT_MZT) ?
+    return file_format_is_record_container(prepared_format) ?
         mzf_playback_get_mzt_record_title() : "";
 }
 
 loader_mode_t play_engine_get_mzt_record_loader_mode(void)
 {
-    return (prepared_format == FILE_FORMAT_MZT) ?
+    return file_format_is_sharp_tape(prepared_format) ?
         mzf_playback_get_mzt_record_loader_mode() : prepared_loader_mode;
 }
 
 bool play_engine_get_loader_from_info_sidecar(void)
 {
-    if (prepared_format == FILE_FORMAT_MZT)
+    if (file_format_is_record_container(prepared_format))
     {
         return mzf_playback_get_mzt_record_loader_from_sidecar();
     }

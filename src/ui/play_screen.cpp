@@ -20,6 +20,8 @@ static const char text_error[] PROGMEM = "ERR %.12s";
 static const char text_unknown[] PROGMEM = "UNKNOWN";
 static const char text_unsupported[] PROGMEM = "UNSUPPORTED";
 static const char text_play_time[] PROGMEM = "%s %02u:%02u/%02u:%02u";
+static const char text_play_profile_time[] PROGMEM = "%s %-4s %02u:%02u";
+static const char text_play_profile_unknown[] PROGMEM = "%s %-4s --:--";
 static const char text_play_percent[] PROGMEM = "%s        %03u%% ";
 static const char text_play_phase_percent[] PROGMEM = "%s %-3s    %03u%% ";
 static const char text_mzt_select_time[] PROGMEM = "SEL %-4s %02u:%02u";
@@ -294,7 +296,7 @@ static void build_play_line0(const play_controller_view_t *view, char *line0)
     memset(line0, ' ', 16U);
     line0[16] = '\0';
 
-    if (view->format == FILE_FORMAT_MZT)
+    if (file_format_is_record_container(view->format))
     {
         char prefix[13];
         int written = snprintf(prefix, sizeof(prefix), "%u%c%u ",
@@ -315,10 +317,11 @@ static void build_play_line0(const play_controller_view_t *view, char *line0)
         memcpy(line0 + prefix_length, scrolled,
                (uint8_t)(15U - prefix_length));
     }
-    else if (view->loader_from_info_sidecar && (view->format == FILE_FORMAT_MZF))
+    else if (view->loader_from_info_sidecar &&
+             ((view->format == FILE_FORMAT_MZF) || (view->format == FILE_FORMAT_M12)))
     {
         line0[0] = 'M';
-        line0[1] = 'F';
+        line0[1] = (view->format == FILE_FORMAT_M12) ? '2' : 'F';
         line0[2] = 'I';
         line0[3] = ' ';
         copy_scrolling_filename(scrolled, view->filename, 11U);
@@ -338,11 +341,11 @@ play_screen_action_t play_screen_handle_event(button_event_t event)
     {
         case BUTTON_EVENT_UP_PRESS:
         case BUTTON_EVENT_UP_REPEAT:
-            (void)play_controller_select_mzt_record(-1);
+            if (play_controller_select_mzt_record(-1)) keypad_restart_repeat_timer();
             return PLAY_SCREEN_ACTION_NONE;
         case BUTTON_EVENT_DOWN_PRESS:
         case BUTTON_EVENT_DOWN_REPEAT:
-            (void)play_controller_select_mzt_record(1);
+            if (play_controller_select_mzt_record(1)) keypad_restart_repeat_timer();
             return PLAY_SCREEN_ACTION_NONE;
         case BUTTON_EVENT_SELECT_SHORT: return PLAY_SCREEN_ACTION_TOGGLE_PLAY;
         case BUTTON_EVENT_LEFT_SHORT:
@@ -359,6 +362,21 @@ play_screen_action_t play_screen_handle_event(button_event_t event)
             return PLAY_SCREEN_ACTION_BACK;
         default: return PLAY_SCREEN_ACTION_NONE;
     }
+}
+
+void play_screen_show_qd_loading(uint8_t percent)
+{
+    char line0[17];
+    flash_text_snprintf(line0, sizeof(line0), PSTR("QD SCAN %3u%%"),
+                        (unsigned int)percent);
+    lcd_print_fixed(0U, line0);
+    lcd_print_fixed_P(1U, PSTR("STOP=CANCEL"));
+}
+
+void play_screen_show_qd_preparing(void)
+{
+    lcd_print_fixed_P(0U, PSTR("QD LOAD..."));
+    lcd_print_fixed_P(1U, PSTR("PLEASE WAIT"));
 }
 
 void play_screen_render(const play_controller_view_t *view)
@@ -399,7 +417,8 @@ void play_screen_render(const play_controller_view_t *view)
     {
         flash_text_copy(line1, sizeof(line1), text_unsupported);
     }
-    else if ((view->format == FILE_FORMAT_MZT) && view->mzt_selection_pending)
+    else if (file_format_is_record_container(view->format) &&
+             view->mzt_selection_pending)
     {
         flash_text_copy(mode_label, sizeof(mode_label),
                         mzt_loader_label_P(view->mzt_record_loader_mode));
@@ -425,6 +444,22 @@ void play_screen_render(const play_controller_view_t *view)
                                     text_mzt_select_time,
                                 mode_label,
                                 (unsigned int)total_minutes,
+                                (unsigned int)total_seconds);
+        }
+    }
+    else if (file_format_is_sharp_tape(view->format) &&
+             (view->state == PLAY_CONTROLLER_STATE_READY))
+    {
+        flash_text_copy(mode_label, sizeof(mode_label),
+                        mzt_loader_label_P(view->mzt_record_loader_mode));
+        flash_text_copy(label, sizeof(label), play_state_to_label_P(view));
+        if (view->total_duration_ms == 0UL)
+            flash_text_snprintf(line1, sizeof(line1), text_play_profile_unknown, label, mode_label);
+        else
+        {
+            play_time_parts(view->total_duration_ms, &total_minutes, &total_seconds);
+            flash_text_snprintf(line1, sizeof(line1), text_play_profile_time, label,
+                                mode_label, (unsigned int)total_minutes,
                                 (unsigned int)total_seconds);
         }
     }

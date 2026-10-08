@@ -12,6 +12,16 @@
 #include "../streams/wav_sample_stream.h"
 #include "mz700_fast3.h"
 
+static mzf_loader_source_seek_t loader_source_seek = sdcard_file_seek;
+static mzf_loader_source_read_t loader_source_read = sdcard_file_read;
+
+void mzf_loader_set_source_io(mzf_loader_source_seek_t seek_fn,
+                              mzf_loader_source_read_t read_fn)
+{
+    loader_source_seek = (seek_fn == NULL) ? sdcard_file_seek : seek_fn;
+    loader_source_read = (read_fn == NULL) ? sdcard_file_read : read_fn;
+}
+
 #define MZF_HEADER_FILE_TYPE_OFFSET 0x00U
 #define MZF_HEADER_DATA_LENGTH_OFFSET 0x12U
 #define MZF_HEADER_LOAD_ADDRESS_OFFSET 0x14U
@@ -1104,12 +1114,12 @@ bool mzf_loader_begin(void)
     if (is_mz700_ul_variant(context.variant))
     {
         mz_sense_set_fast(true); mz_read_set_fast(true);
-        if (!sdcard_file_seek(context.data_offset)) { set_error_P(PSTR("UL SEEK")); return false; }
+        if (!loader_source_seek(context.data_offset)) { set_error_P(PSTR("UL SEEK")); return false; }
         context.transferred = 0UL; context.finished = false; context.first_byte_pending = false;
         context.start_time = 0UL; context.start_state = MZF_LOADER_START_TRANSFER;
         context.started = true; return true;
     }
-    if (!sdcard_file_seek(context.data_offset)) { set_error_P(PSTR("UL SEEK")); return false; }
+    if (!loader_source_seek(context.data_offset)) { set_error_P(PSTR("UL SEEK")); return false; }
     context.transferred = 0UL; context.finished = false; context.first_byte_pending = false;
     context.start_time = 0UL; context.started = true;
     mz_sense_set_fast(true);
@@ -1139,7 +1149,7 @@ static bool mzf_loader_service_startup(void)
         }
         case MZF_LOADER_START_READY_DELAY:
             if ((uint32_t)(micros() - context.start_time) < MZF_LOADER_HEADER_READY_DELAY_US) return true;
-            received = sdcard_file_read(&context.first_byte, 1U);
+            received = loader_source_read(&context.first_byte, 1U);
             if (received != 1)
             {
                 set_error_P((received < 0) ? PSTR("UL READ") : PSTR("UL SHORT"));
@@ -1178,7 +1188,7 @@ bool mzf_loader_pump(uint8_t max_bytes)
         if (request > max_bytes) request = max_bytes;
         if (request > WAV_SAMPLE_STREAM_REFILL_BLOCK) request = WAV_SAMPLE_STREAM_REFILL_BLOCK;
         work = wav_sample_stream_get_shared_work_buffer();
-        received = sdcard_file_read(work, request);
+        received = loader_source_read(work, request);
         if (received != (int16_t)request)
         {
             set_error_P((received < 0) ? PSTR("UL READ") : PSTR("UL SHORT"));

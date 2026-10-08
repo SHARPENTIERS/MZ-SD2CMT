@@ -76,7 +76,7 @@ static bool text_equals_ci_P(const char *left, PGM_P right)
 }
 
 static bool make_info_path(char *destination, size_t destination_size,
-                           const char *source_path, char source_suffix,
+                           const char *source_path, file_format_t format,
                            char info_middle)
 {
     size_t length;
@@ -87,9 +87,7 @@ static bool make_info_path(char *destination, size_t destination_size,
     length = strlen(source_path);
     if ((length < 4U) || (length >= destination_size) ||
         (source_path[length - 4U] != '.') ||
-        (ascii_upper(source_path[length - 3U]) != 'M') ||
-        (ascii_upper(source_path[length - 2U]) != 'Z') ||
-        (ascii_upper(source_path[length - 1U]) != source_suffix))
+        (file_format_detect_from_name(source_path) != format))
     {
         return false;
     }
@@ -104,13 +102,26 @@ static bool make_info_path(char *destination, size_t destination_size,
 static bool make_mfi_path(char *destination, size_t destination_size,
                           const char *mzf_path)
 {
-    return make_info_path(destination, destination_size, mzf_path, 'F', 'F');
+    return make_info_path(destination, destination_size, mzf_path, FILE_FORMAT_MZF, 'F');
 }
 
 static bool make_mti_path(char *destination, size_t destination_size,
                           const char *mzt_path)
 {
-    return make_info_path(destination, destination_size, mzt_path, 'T', 'T');
+    return make_info_path(destination, destination_size, mzt_path, FILE_FORMAT_MZT, 'T');
+}
+
+static bool make_tape_info_path(char *destination, size_t destination_size,
+                                const char *path, file_format_t format)
+{
+    switch (format)
+    {
+        case FILE_FORMAT_MZF: return make_mfi_path(destination, destination_size, path);
+        case FILE_FORMAT_MZT: return make_mti_path(destination, destination_size, path);
+        case FILE_FORMAT_M12:
+            return make_info_path(destination, destination_size, path, format, '2');
+        default: return false;
+    }
 }
 
 static bool mzi_read_field_P(const char *text, PGM_P key,
@@ -385,6 +396,19 @@ bool mzi_sidecar_exists_for_mzt(const char *mzt_path)
 bool mzi_sidecar_read_loader_for_mzf(const char *mzf_path,
                                      loader_mode_t *loader_mode)
 {
+    return mzi_sidecar_read_loader_for_tape(mzf_path, FILE_FORMAT_MZF, loader_mode);
+}
+
+bool mzi_sidecar_exists_for_tape(const char *path, file_format_t format)
+{
+    char *info_path = (char *)wav_sample_stream_get_shared_work_buffer();
+    return make_tape_info_path(info_path, RECORD_PATH_BUFFER_MAX, path, format) &&
+           sdcard_file_exists(info_path);
+}
+
+bool mzi_sidecar_read_loader_for_tape(const char *path, file_format_t format,
+                                      loader_mode_t *loader_mode)
+{
     uint8_t *workspace = wav_sample_stream_get_shared_work_buffer();
     char *mfi_path = (char *)workspace;
     char *text = (char *)(workspace + RECORD_PATH_BUFFER_MAX);
@@ -392,8 +416,9 @@ bool mzi_sidecar_read_loader_for_mzf(const char *mzf_path,
     int16_t bytes_read;
     bool ok;
 
-    if (loader_mode == NULL) return false;
-    if (!make_mfi_path(mfi_path, RECORD_PATH_BUFFER_MAX, mzf_path)) return false;
+    if ((loader_mode == NULL) ||
+        ((format != FILE_FORMAT_MZF) && (format != FILE_FORMAT_M12))) return false;
+    if (!make_tape_info_path(mfi_path, RECORD_PATH_BUFFER_MAX, path, format)) return false;
     if (!sdcard_file_exists(mfi_path)) return false;
     if (!sdcard_file_open_read(mfi_path)) return false;
 

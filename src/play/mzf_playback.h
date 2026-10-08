@@ -36,14 +36,27 @@ typedef enum
     MZF_PLAYBACK_PHASE_ULTRAFAST_DATA
 } mzf_playback_phase_t;
 
+typedef void (*mzf_qd_analysis_progress_callback_t)(uint8_t percent);
+typedef bool (*mzf_qd_analysis_cancel_callback_t)(void);
+
+/* Progress callbacks receive this value while a selected physical QD record
+   is scanned for duration before playback. Percent values remain 0..100. */
+#define MZF_QD_PROGRESS_LOADING 0xFFU
+
 /* Streams Sharp tape images with native framing and selected loader timing.
    mzt_start_record is 1-based and ignored for MZF/M12. */
 void mzf_playback_init(void);
+void mzf_playback_set_qd_analysis_callbacks(
+    mzf_qd_analysis_progress_callback_t progress_callback,
+    mzf_qd_analysis_cancel_callback_t cancel_callback);
+/* Drop the physical-QD directory retained for fast mini-browser navigation. */
+void mzf_playback_invalidate_qd_cache(void);
 bool mzf_playback_prepare(const char *path, file_format_t format,
                           loader_mode_t loader_mode,
                           uint16_t mzt_start_record,
                           bool motor_control_enabled);
 bool mzf_playback_start(void);
+bool mzf_playback_qd_load_was_cancelled(void);
 bool mzf_playback_pause(void);
 bool mzf_playback_resume(void);
 void mzf_playback_stop(void);
@@ -60,6 +73,7 @@ bool mzf_playback_is_ul_loader_active(void);
 uint16_t mzf_playback_get_mzt_record_index(void);
 uint16_t mzf_playback_get_mzt_record_count(void);
 const char *mzf_playback_get_mzt_record_title(void);
+/* Effective profile for the current Sharp record, including single MZF/M12. */
 loader_mode_t mzf_playback_get_mzt_record_loader_mode(void);
 /* True only when the current MZT RECORD=n resolved a valid loader from MTI. */
 bool mzf_playback_get_mzt_record_loader_from_sidecar(void);

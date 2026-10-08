@@ -1,8 +1,11 @@
-# MFI / MTI playback metadata
+# MFI / M2I / MTI playback metadata
+
+Applies to firmware **2.0.2**.
 
 External metadata names are explicit:
 
 - `GAME.MZF` -> `GAME.MFI`
+- `GAME.M12` -> `GAME.M2I`
 - `TAPE.MZT` -> `TAPE.MTI`
 
 There is no `.MZI` fallback. The internal source/API name `mzi_sidecar.*` is
@@ -37,6 +40,21 @@ TYPE=UL_MZ800
 
 MFI is used only when PLAY loader selection is `AUTO`. A manually selected
 loader/profile always has priority.
+
+## M2I for one M12
+
+M2I uses the same single-record parser, TYPE/SPEED syntax and semantics as MFI.
+Only the companion extension differs. `GAME.MZF` + `GAME.MFI` and `GAME.M12` +
+`GAME.M2I` can coexist. Lookup never crosses between MFI, M2I and MTI.
+
+A compatible M12 supports the same manual profiles as MZF: all NORMAL speeds,
+MZ700 1:1/FAST3, IC 1:1/1:2/1:3/1:4, TC 1:1/1:2/1:3 and UL/UL_MZ800/UL_MZ700.
+Existing file-type, payload bounds, receiver placement, workspace/overlap and
+loader-specific checks still apply. The extension does not select a machine.
+
+Ready-to-copy example: [EXAMPLE.M2I](../examples/EXAMPLE.M2I) requests IC 1:2.
+For `GAME.M12`, copy it to the same directory as `GAME.M2I` and select
+`LOADER=AUTO`. See [example usage and companion mapping](../examples/README.md).
 
 ## MTI for an MZT container
 
@@ -112,8 +130,20 @@ CRLF and LF are accepted. TYPE is compared case-insensitively.
 2. MZF AUTO: missing/invalid MFI -> `NORMAL 1:1`.
 3. MZT AUTO: missing MTI, missing `RECORD=n`, or invalid target section ->
    `NORMAL 1:1` for that record only. The next record is resolved again.
-4. M12 AUTO remains `NORMAL 1:1` and has no MFI/MTI lookup.
+4. M12 AUTO: use matching valid M2I; missing/invalid M2I -> `NORMAL 1:1`.
 5. `.MZI` is not read or written.
+
+When a requested generated/turbo/UL loader fails preparation safety checks,
+every Sharp source falls back to actual `NORMAL 1:1`: MZF, M12, MZT, logical
+MZQ, QDF and physical HxC/FlashFloppy MFM records. Recovery resets the loader
+and restores the complete normal pulse, header/data leader and mark profile;
+no UL leader state survives. Direct NORMAL and MZ700 1:1 profiles retain their
+selected timing. I/O errors remain errors.
+
+The READY screen for a single Sharp file shows its effective profile (for
+example `RDY N11  01:00` after rejection). The record selector likewise shows
+the effective profile. The manual menu choice remains the requested setting,
+so preparing another compatible record can use it again.
 
 ## MZT record selector
 
@@ -131,7 +161,7 @@ header title, loader/profile and the duration of that record.
 
 When an MTI exists, the selector explicitly shows `MTI`; MZT line 0 also marks
 the record counter with `I`. For MZF, line 0 explicitly shows `MFI` when its
-sidecar exists.
+sidecar is used. M12 similarly shows `M2I` when AUTO reads a valid M2I.
 
 ## Per-record time
 
@@ -172,7 +202,7 @@ clamped exactly to that record's payload.
 
 ## Browser behavior
 
-`.MFI`, `.MTI`, and legacy `.MZI` files are metadata and are hidden from the
+`.MFI`, `.M2I`, `.MTI`, and legacy `.MZI` files are metadata and are hidden from the
 normal sorted browser. Filtering happens inside the shared SD browser-entry
 filter, so hidden metadata does not count in the visible `N/N` position and does
 not participate in previous/next sorting.

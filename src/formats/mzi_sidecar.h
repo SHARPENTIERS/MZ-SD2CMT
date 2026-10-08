@@ -5,6 +5,7 @@
 #include <stdint.h>
 
 #include "../play/loader_mode.h"
+#include "file_format.h"
 
 typedef enum
 {
@@ -41,6 +42,12 @@ bool mzi_sidecar_read_loader_for_mzf(const char *mzf_path,
 /* True when the corresponding same-basename metadata file exists. */
 bool mzi_sidecar_exists_for_mzf(const char *mzf_path);
 bool mzi_sidecar_exists_for_mzt(const char *mzt_path);
+
+/* Exact source mapping: MZF -> MFI, M12 -> M2I, MZT -> MTI.
+   The single-record reader accepts only MZF/M12 and shares the MFI syntax. */
+bool mzi_sidecar_exists_for_tape(const char *path, file_format_t format);
+bool mzi_sidecar_read_loader_for_tape(const char *path, file_format_t format,
+                                      loader_mode_t *loader_mode);
 
 /* Reads RECORD=n from the same-basename .MTI companion of an MZT.
    Record numbering starts at 1. Missing/invalid records return false. */

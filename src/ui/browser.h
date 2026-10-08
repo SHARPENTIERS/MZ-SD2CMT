@@ -21,6 +21,10 @@ const char* browser_get_selected_name(void);
 bool browser_selected_is_directory(void);
 void browser_save_position(void);
 void browser_restore_saved_position(void);
+/* UI-only return: retain directory, selection and scroll; service media edges. */
+void browser_resume(void);
+/* Forced recovery also works with a responding CID and no CARD DETECT. */
+void browser_recover_sd(void);
 void browser_clear_status(void);
 
 /* Current browser directory is used as the target for RECxxxx.WAV files. */

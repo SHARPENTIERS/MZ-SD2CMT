@@ -22,6 +22,8 @@
 #define BROWSER_ROOT_RETRY_COUNT 3U
 
 static bool sd_ok = false;
+/* Independent of count: a failed FAT read is never an empty directory. */
+static bool directory_error = false;
 static uint16_t dir_count = 0;
 /* Index in alphabetical browser order, not physical FAT directory order. */
 static uint16_t selected_index = 0;
@@ -164,6 +166,10 @@ static void browser_set_entry_read_error(void)
 {
     const char *error_message;
 
+    directory_error = true;
+    browser_clear_status();
+    dir_count = 0U;
+    selected_index = 0U;
     sd_ok = sdcard_is_mounted();
     if (!sd_ok)
     {
@@ -213,11 +219,12 @@ static browser_directory_load_result_t browser_scan_current_directory(void)
     }
 
     dir_count = scanned_count;
+    directory_error = false;
     selected_index = 0U;
 
     if (dir_count == 0U)
     {
-        browser_set_current_entry_message_P(PSTR("EMPTY"));
+        browser_set_current_entry_message_P(PSTR(""));
         return BROWSER_DIRECTORY_EMPTY;
     }
 
@@ -271,6 +278,7 @@ static void browser_reset_root_state(void)
     memset(&current_entry, 0, sizeof(current_entry));
     saved_position_valid = false;
     saved_name[0] = '\0';
+    directory_error = false;
     saved_is_dir = false;
     browser_reset_name_scroll();
     browser_reset_path_scroll();
@@ -369,6 +377,9 @@ static bool browser_restore_entry_by_identity(const char *name, bool is_dir)
     if (!sdcard_find_sorted_entry_by_identity(current_path, dir_count, name, is_dir,
                                               &resolved_index, &entry))
     {
+        /* Deleted/renamed selection is normal: keep the scanned first item. */
+        if (strcmp_P(sdcard_last_error(), PSTR("NO ENTRY")) == 0)
+            return false;
         browser_set_entry_read_error();
         return false;
     }
@@ -388,7 +399,7 @@ static bool browser_find_saved_position(void)
     return browser_restore_entry_by_identity(saved_name, saved_is_dir);
 }
 
-static void browser_refresh_sd(void)
+void browser_recover_sd(void)
 {
     set_status_message_P(PSTR("SD INIT"));
 
@@ -405,6 +416,11 @@ static void browser_refresh_sd(void)
     browser_open_root_after_sd_init();
 }
 
+static void browser_refresh_sd(void)
+{
+    browser_recover_sd();
+}
+
 static void browser_go_root(void)
 {
     browser_reset_root_state();
@@ -414,6 +430,7 @@ static void browser_go_root(void)
 static void browser_go_parent(void)
 {
     char leaving_name[BROWSER_NAME_MAX];
+    if (directory_error || !sd_ok) return;
     if (browser_is_root())
     {
         return;
@@ -584,7 +601,7 @@ void browser_clear_status(void)
 
 static browser_action_t browser_select_current(void)
 {
-    if (!sd_ok)
+    if (!sd_ok || directory_error)
     {
         browser_refresh_sd();
         return BROWSER_ACTION_NONE;
@@ -616,7 +633,7 @@ static browser_action_t browser_request_record(void)
           starts recording on the same press.
         - SD OK: verify the mounted card once and start RECORD.
     */
-    if (!sd_ok)
+    if (!sd_ok || directory_error)
     {
         right_locked_until_release = true;
         browser_refresh_sd();
@@ -668,6 +685,7 @@ browser_action_t browser_handle_event(button_event_t event)
             browser_go_parent();
             return BROWSER_ACTION_NONE;
         case BUTTON_EVENT_LEFT_LONG:
+            if (directory_error || !sd_ok) return BROWSER_ACTION_SETTINGS_REQUESTED;
             if (browser_is_root()) return BROWSER_ACTION_SETTINGS_REQUESTED;
             browser_go_root();
             return BROWSER_ACTION_NONE;
@@ -676,16 +694,10 @@ browser_action_t browser_handle_event(button_event_t event)
             return browser_request_record();
         case BUTTON_EVENT_RIGHT_LONG:
             if (right_locked_until_release) return BROWSER_ACTION_NONE;
-            if (!sd_ok)
+            if (!sd_ok || directory_error)
             {
                 right_locked_until_release = true;
                 browser_refresh_sd();
-                return BROWSER_ACTION_NONE;
-            }
-            if (!sdcard_init())
-            {
-                sd_ok = false;
-                browser_build_dir_index();
                 return BROWSER_ACTION_NONE;
             }
             return BROWSER_ACTION_RECORD_MENU_REQUESTED;
@@ -769,7 +781,8 @@ static bool browser_current_has_info_sidecar(void)
     }
 
     format = file_format_detect_from_name(current_entry.name);
-    if ((format != FILE_FORMAT_MZF) && (format != FILE_FORMAT_MZT))
+    if ((format != FILE_FORMAT_MZF) && (format != FILE_FORMAT_M12) &&
+        (format != FILE_FORMAT_MZT))
     {
         return false;
     }
@@ -790,9 +803,7 @@ static bool browser_current_has_info_sidecar(void)
     memcpy(cmt_session_path_buffer + output_offset, current_entry.name,
            name_length + 1U);
 
-    current_info_sidecar = (format == FILE_FORMAT_MZF) ?
-        mzi_sidecar_exists_for_mzf(cmt_session_path_buffer) :
-        mzi_sidecar_exists_for_mzt(cmt_session_path_buffer);
+    current_info_sidecar = mzi_sidecar_exists_for_tape(cmt_session_path_buffer, format);
     return current_info_sidecar;
 }
 
@@ -1031,11 +1042,15 @@ void browser_render(void)
             flash_text_copy(line1, sizeof(line1), PSTR("RECORD=RETRY"));
         }
     }
+    else if (directory_error)
+    {
+        flash_text_copy(line0, sizeof(line0), PSTR("DIR FAIL"));
+        flash_text_copy(line1, sizeof(line1), PSTR("RECORD=RETRY"));
+    }
     else if (dir_count == 0U)
     {
         browser_format_position_line(line0);
         memset(line1, ' ', LCD_COLUMNS);
-        memcpy_P(line1, PSTR("EMPTY"), 5U);
         line1[LCD_COLUMNS] = '\0';
     }
     else
@@ -1070,14 +1085,18 @@ void browser_save_position(void)
 
 void browser_restore_saved_position(void)
 {
+    if (!sd_ok || directory_error) return;
     if (!saved_position_valid)
     {
         return;
     }
-    if (!browser_find_saved_position())
-    {
-        browser_load_first_entry();
-    }
+    (void)browser_find_saved_position();
+}
+
+void browser_resume(void)
+{
+    /* Already serviced while settings were open; no directory lookup here. */
+    browser_service();
 }
 
 const char* browser_get_current_path(void)
@@ -1090,6 +1109,7 @@ void browser_refresh(void)
     /* The file was just saved/deleted on an already mounted card.
        Re-scan silently: do not show the SD INIT splash on return. */
     browser_build_dir_index();
-    browser_find_saved_position();
+    if (sd_ok && !directory_error && (dir_count != 0U))
+        browser_find_saved_position();
     lcd_clear();
 }

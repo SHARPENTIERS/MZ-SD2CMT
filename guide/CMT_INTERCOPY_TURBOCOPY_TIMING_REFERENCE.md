@@ -1,30 +1,30 @@
 # Sharp MZ CMT — Intercopy 10.2 & TurboCopy 1.22 Timing Reference
 
-**Účel:** zdrojová reference pro stanovení časových konstant v **QDTool/QDTools** a **MZ-SD2CMT2**.
+**Purpose:** source reference for defining timing constants in **MZTools** and **MZ-SD2CMT2**.
 
-**Datum analýzy:** 2026-09-14
+**Analysis date:** 2026-09-14
 
-Tento dokument je určen k používání společně s:
+This document is intended to be used together with:
 
 - `CMT_TIMING_REFERENCE.md`
 - `LEADER_PULSES_UNIFICATION.md`
 
-Neřeší znovu kompletní Sharp ROM timing ani politiku leader counts. Doplňuje je o přímou analýzu dvou historických kopírek:
+It does not revisit the complete Sharp ROM timing or leader-count policy. It supplements them with a direct analysis of two historical tape-copying programs:
 
 - **Intercopy V10.2**
 - **Turbo Copy V1.22 / TC1.22**
 
-Hlavní zásada:
+Main principle:
 
-> Vždy rozlišovat **writer-generated waveform**, **receiver decision timing**, **project compatibility waveform** a **leader/framing policy**. Tyto čtyři věci nejsou zaměnitelné.
+> Always distinguish **writer-generated waveform**, **receiver decision timing**, **project compatibility waveform**, and **leader/framing policy**. These four concepts are not interchangeable.
 
 ---
 
-# 1. Vstupní binárky
+# 1. Input binaries
 
 ## 1.1 Intercopy V10.2
 
-Soubor:
+File:
 
 ```text
 Incopy102(3).mzf
@@ -36,19 +36,19 @@ SHA-256:
 b7b8669791a12c0212b046defdd37ca1f2687e595589c1cddf07bdb2ef443439
 ```
 
-Identifikace v MZF filename:
+Identification in the MZF filename:
 
 ```text
 Intercopy V10.2
 ```
 
-Poznámka: MZ znaková sada není ASCII, ale suffix `V10.2` je v headeru přímo čitelný.
+Note: the MZ character set is not ASCII, but the `V10.2` suffix is directly readable in the header.
 
 ---
 
 ## 1.2 Turbo Copy V1.22
 
-Soubor:
+File:
 
 ```text
 Tc122(4).mzf
@@ -69,51 +69,51 @@ EXEC = $2D98
 SIZE = 7083 B
 ```
 
-Filename končí:
+The filename ends with:
 
 ```text
 V1.22
 ```
 
-Startovací rutina kopíruje hlavní pracovní obraz z `$1200` do oblasti začínající `$E471`.
+The startup routine copies the main working image from `$1200` to the region starting at `$E471`.
 
-Relokační rozdíl použitý níže:
+Relocation offset used below:
 
 ```text
 $E471 - $1200 = $D271
 ```
 
-Tím lze přímo mapovat kód uložený v MZF na runtime adresy TurboCopy.
+This allows the code stored in the MZF to be mapped directly to TurboCopy runtime addresses.
 
 ---
 
-# 2. Evidence labels používané v tomto dokumentu
+# 2. Evidence labels used in this document
 
 ```text
 COPIER-WRITER-EXACT
-    instrukce skutečného writeru konkrétní kopírky
-    + deterministický výpočet Z80/timer timingů
+    instructions from the actual writer of a specific tape-copying program
+    + deterministic calculation of Z80/timer timings
 
 COPIER-TIMER-EXACT
-    přesná hodnota programovaného HW čítače / timer mode;
-    převod na µs může stále záviset na přesné fyzické clock frekvenci
+    exact programmed hardware counter value / timer mode;
+    conversion to µs may still depend on the exact physical clock frequency
 
 RECEIVER-EXACT
-    přesný loader/monitor receive path a decision window
+    exact loader/monitor receive path and decision window
 
 HW-NOMINAL
-    hodnota z hardware/service dokumentace, např. CKMS = 1.10 MHz
+    value from hardware/service documentation, e.g. CKMS = 1.10 MHz
 
 PROJECT-COMPAT
-    záměrně zvolený pevný waveform s dobrou receive margin;
-    nemusí být totožný s historickým writerem
+    deliberately chosen fixed waveform with a good receive margin;
+    may differ from the historical writer
 
 PROJECT-FRAMING
-    kanonická politika leader/tapemark counts projektu;
-    nesmí být odvozována z pulse width
+    the project's canonical leader/tape-mark count policy;
+    must not be derived from pulse width
 ```
 
-Pro rozhodování o změně konstant platí:
+When deciding whether to change constants, the following distinction applies:
 
 ```text
 writer-exact != receiver-exact != compatibility waveform != framing
@@ -121,13 +121,13 @@ writer-exact != receiver-exact != compatibility waveform != framing
 
 ---
 
-# 3. Intercopy V10.2 — rozlišení NORMAL a FAST IPL
+# 3. Intercopy V10.2 — distinguishing NORMAL and FAST IPL
 
 ## 3.1 Mode selector
 
-Intercopy používá mode byte na `$16F3`.
+Intercopy uses a mode byte at `$16F3`.
 
-Analýza programu dává:
+Program analysis gives:
 
 ```text
 0 = NORMAL
@@ -137,13 +137,13 @@ Analýza programu dává:
 4 = FAST IPL
 ```
 
-To je důležité, protože společná FM writer rutina je používána více režimy.
+This matters because several modes share the same FM writer routine.
 
 ---
 
-## 3.2 NORMAL používá společný FM writer přímo
+## 3.2 NORMAL uses the shared FM writer directly
 
-Pro režim NORMAL vede cesta v Intercopy přibližně:
+For NORMAL mode, the Intercopy code path is approximately:
 
 ```text
 $2035
@@ -156,25 +156,25 @@ $2035
   -> $1D8E        physical CMT pulse writer
 ```
 
-Takže časování odvozené z `$16F7/$1D8E` **není omylem jen FAST IPL timing**.
+Therefore, the timing derived from `$16F7/$1D8E` **is not mistakenly limited to FAST IPL timing**.
 
-NORMAL používá tento writer přímo při zvolené rychlosti.
+NORMAL uses this writer directly at the selected speed.
 
 ---
 
-## 3.3 FAST IPL používá stejný fyzický FM writer jinak
+## 3.3 FAST IPL uses the same physical FM writer differently
 
-FAST IPL má zvláštní setup.
+FAST IPL has a separate setup sequence.
 
-Rutina kolem `$201C`:
+The routine around `$201C`:
 
-1. uloží aktuálně zvolenou turbo rychlost,
-2. nastaví dočasně `1200 Bd`,
-3. zapíše loader/header,
-4. původní rychlost obnoví,
-5. turbo body zapíše společným FM writerem při vybrané rychlosti.
+1. saves the currently selected turbo speed,
+2. temporarily selects `1200 Bd`,
+3. writes the loader/header,
+4. restores the original speed,
+5. writes the turbo body using the shared FM writer at the selected speed.
 
-Tedy:
+Thus:
 
 ```text
 FAST IPL header
@@ -184,13 +184,13 @@ FAST IPL turbo body
     -> selected 2400 / 2800 / 3200 Bd physical FM timing
 ```
 
-Framing FAST IPL je samostatná věc a řídí se `LEADER_PULSES_UNIFICATION`.
+FAST IPL framing is a separate concern governed by `LEADER_PULSES_UNIFICATION`.
 
 ---
 
 # 4. Intercopy speed table `$16F7`
 
-Relevantní řádky:
+Relevant rows:
 
 ```text
 speed   readpoint   t1   t2   t3   t4
@@ -201,63 +201,63 @@ speed   readpoint   t1   t2   t3   t4
 3200      $11      $15  $2B  $20  $31
 ```
 
-Význam:
+Meaning:
 
 ```text
 readpoint
-    parametr receiveru / DLY3 family
+    receiver parameter / DLY3 family
 
 t1
-    SHORT první půlvlna
+    SHORT first half-cycle
 
 t2
-    LONG první půlvlna
+    LONG first half-cycle
 
 t3
-    SHORT druhá půlvlna
+    SHORT second half-cycle
 
 t4
-    LONG druhá půlvlna
+    LONG second half-cycle
 ```
 
-`$1DF5` vloží čtyři timing bytes přímo do self-modifikované pulse rutiny `$1D8E`.
+`$1DF5` inserts four timing bytes directly into the self-modifying pulse routine `$1D8E`.
 
-To je přímý důkaz, že Intercopy waveform může být asymetrický.
+This is direct evidence that the Intercopy waveform can be asymmetric.
 
 ---
 
-# 5. Intercopy writer `$1D8E` — výpočet pulse widths
+# 5. Intercopy writer `$1D8E` — calculating pulse widths
 
-Pro běžný steady data path je možné intervaly vyjádřit:
+For the normal steady-state data path, the intervals can be expressed as:
 
 ```text
-první půlvlna:
+first half-cycle:
     N = ($F2 + timing_operand) & $FF
     T = 182 + 13*N
 
-druhá půlvlna:
+second half-cycle:
     N = ($F3 + timing_operand) & $FF
     T = 169 + 13*N
 ```
 
-Použitý PAL MZ-800 CPU clock:
+PAL MZ-800 CPU clock used:
 
 ```text
 3,546,875 Hz
 ```
 
-Převod:
+Conversion:
 
 ```text
 time_us = T / 3,546,875 * 1,000,000
 ```
 
-Poznámka:
+Note:
 
-- tabulka níže je referenční steady-data waveform;
-- některé leader/tape-mark kontexty mohou mít nepatrnou caller-dependent odchylku;
-- například u některého opakovaného LONG kontextu může být rozdíl řádu 1 T;
-- pro pevný čtyřčíselný profil jsou hodnoty níže správnou code-derived referencí.
+- the table below gives the reference steady-state data waveform;
+- some leader/tape-mark contexts may have a slight caller-dependent variation;
+- for example, certain repeated LONG contexts may differ by approximately 1 T;
+- for a fixed four-value profile, the values below are the correct code-derived reference.
 
 Evidence:
 
@@ -279,7 +279,7 @@ LONG  HIGH = 1664 T = 469.145 us
 LONG  LOW  = 1755 T = 494.802 us
 ```
 
-Tento výsledek je zároveň velmi dobrý sanity check proti standardnímu MZ-800 CMT waveformu.
+This result also provides a useful sanity check against the standard MZ-800 CMT waveform.
 
 ---
 
@@ -293,7 +293,7 @@ LONG  HIGH = 832 T = 234.573 us
 LONG  LOW  = 923 T = 260.229 us
 ```
 
-Historický faktor:
+Historical factor:
 
 ```text
 2:1
@@ -311,20 +311,20 @@ LONG  HIGH = 624 T = 175.930 us
 LONG  LOW  = 793 T = 223.577 us
 ```
 
-Historický speed ratio:
+Historical speed ratio:
 
 ```text
 7:3 = 2.333333...
 ```
 
-V současném projektovém názvosloví se tento stupeň často označuje jako:
+In current project terminology, this speed setting is often referred to as:
 
 ```text
 NORMAL 1:3
 IC 1:3
 ```
 
-ale **nejde matematicky o 3.000×**.
+but **it is not mathematically 3.000×**.
 
 ---
 
@@ -338,26 +338,26 @@ LONG  HIGH = 559 T = 157.604 us
 LONG  LOW  = 637 T = 179.595 us
 ```
 
-Historický speed ratio:
+Historical speed ratio:
 
 ```text
 8:3 = 2.666666...
 ```
 
-V současném projektovém názvosloví se tento stupeň často označuje jako:
+In current project terminology, this speed setting is often referred to as:
 
 ```text
 NORMAL 1:4
 IC 1:4
 ```
 
-ale **nejde matematicky o 4.000×**.
+but **it is not mathematically 4.000×**.
 
 ---
 
-# 7. Kritický závěr pro NORMAL 3 / NORMAL 4
+# 7. Critical conclusion for NORMAL 3 / NORMAL 4
 
-Pro historickou reprodukci Intercopy NORMAL:
+For historical reproduction of Intercopy NORMAL:
 
 ```text
 NORMAL "3" / 2800 Bd:
@@ -369,23 +369,23 @@ NORMAL "4" / 3200 Bd:
     LONG  157.604 / 179.595 us
 ```
 
-Tedy historický Intercopy NORMAL 3200 **není**:
+Therefore, historical Intercopy NORMAL 3200 **is not**:
 
 ```text
 112 / 80 us
 176 / 160 us
 ```
 
-a není ani:
+nor is it:
 
 ```text
 96 / 96 us
 192 / 192 us
 ```
 
-Je záměrně / algoritmicky asymetrický.
+It is asymmetric by design / as a result of the algorithm.
 
-Pro NORMAL 3200 je navíc důležitý poměr rozhodující první půlvlny:
+For NORMAL 3200, the ratio of the first half-cycles, which determine the receiver's decision, is also important:
 
 ```text
 LONG_HIGH / SHORT_HIGH
@@ -393,25 +393,25 @@ LONG_HIGH / SHORT_HIGH
 ≈ 2.048
 ```
 
-To dává výrazně větší SHORT/LONG separation než profil:
+This gives substantially greater SHORT/LONG separation than the profile:
 
 ```text
 176 / 112 ≈ 1.571
 ```
 
-Toto je důležité pro Barbarian-style adaptive receiver.
+This matters for a Barbarian-style adaptive receiver.
 
 ---
 
-# 8. Intercopy IC loader — receiver timing není writer waveform
+# 8. Intercopy IC loader — receiver timing is not the writer waveform
 
-`CMT_TIMING_REFERENCE` už stanovuje přesné receiver windows pro IC.
+`CMT_TIMING_REFERENCE` already defines the exact receiver windows for IC.
 
 IC loader:
 
-- spouští low-monitor copy z RAM,
-- patchuje DLY3,
-- přidává EDGE-return hook s netto zpožděním `+86 T`.
+- runs a copy of the low monitor from RAM,
+- patches DLY3,
+- adds an EDGE-return hook with a net delay of `+86 T`.
 
 Receiver equation:
 
@@ -444,7 +444,7 @@ IC 1:4:
     115.313..129.974 us
 ```
 
-Současné SD2CMT2 IC waveforms:
+Current SD2CMT2 IC waveforms:
 
 ```text
 IC 1:2:
@@ -460,33 +460,33 @@ IC 1:4:
     LONG  176 / 160 us
 ```
 
-Tyto hodnoty jsou:
+These values are:
 
 ```text
 PROJECT-COMPAT / HW-tested compatibility waveform
 ```
 
-Nejsou to:
+They are not:
 
 ```text
 COPIER-WRITER-EXACT Intercopy waveform
 ```
 
-Proto se v QDTool ani SD2CMT2 nesmí jedna tabulka automaticky používat pro:
+Therefore, neither MZTools nor SD2CMT2 may automatically use a single table for both:
 
 ```text
 NORMAL 3200 exact
-a
+and
 IC 1:4 compatibility
 ```
 
 ---
 
-# 9. Doporučené oddělení Intercopy profilů v kódu
+# 9. Recommended separation of Intercopy profiles in code
 
-Pro oba projekty je vhodné mít koncepčně dvě vrstvy.
+Both projects should conceptually maintain two layers.
 
-## Historická writer reference
+## Historical writer reference
 
 ```text
 INTERCOPY_NORMAL_1200
@@ -495,9 +495,9 @@ INTERCOPY_NORMAL_2800
 INTERCOPY_NORMAL_3200
 ```
 
-s code-derived H/L hodnotami z kapitoly 6.
+with the code-derived H/L values from section 6.
 
-Stejný physical timing engine je relevantní i pro FAST IPL turbo body.
+The same physical timing engine also applies to the FAST IPL turbo body.
 
 ## Receiver-compatible SD2CMT2 profiles
 
@@ -507,21 +507,21 @@ IC_1_3_COMPAT
 IC_1_4_COMPAT
 ```
 
-s dosavadními HW-proven hodnotami.
+with the existing hardware-proven values.
 
-Změna jedné vrstvy nesmí automaticky měnit druhou.
+Changing one layer must not automatically change the other.
 
 ---
 
-# 10. QDTool WAV — důsledek sample rate
+# 10. MZTools WAV — impact of sample rate
 
-Při 44.1 kHz má jeden sample:
+At 44.1 kHz, one sample lasts:
 
 ```text
 22.675737 us
 ```
 
-Intercopy NORMAL 3200 pak odpovídá přibližně:
+Intercopy NORMAL 3200 then corresponds approximately to:
 
 ```text
 SHORT HIGH  76.969 us -> 3.394 samples
@@ -531,42 +531,42 @@ LONG HIGH   157.604 us -> 6.950 samples
 LONG LOW    179.595 us -> 7.920 samples
 ```
 
-To je hrubá mřížka, zejména pro nejkratší 77-us půlvlnu.
+This is a coarse grid, especially for the shortest 77-us half-cycle.
 
-Proto pro waveform-fidelity export:
+Therefore, for waveform-fidelity export:
 
 ```text
 88.2 kHz
 ```
 
-je výrazně vhodnější než 44.1 kHz.
+is substantially more suitable than 44.1 kHz.
 
-Pokud QDTool zůstane na 44.1 kHz, musí používat průběžný fractional/error accumulator; jednotlivé pulsy budou stále výrazně kvantizované.
+If MZTools remains at 44.1 kHz, it must use a continuous fractional/error accumulator; individual pulses will still be substantially quantized.
 
 ---
 
-# 11. Turbo Copy V1.22 — nová přímá writer analýza
+# 11. Turbo Copy V1.22 — new direct writer analysis
 
-Starší reference měla:
+The earlier reference stated:
 
 ```text
 TC loader/readpoint = exact
 TC historical writer loop = not yet directly established
 ```
 
-`Tc122(4).mzf` tuto mezeru pro **Turbo Copy V1.22** zavírá.
+`Tc122(4).mzf` closes this gap for **Turbo Copy V1.22**.
 
-Pozor:
+Caution:
 
-> Tato část je source-exact pro TC1.22. Nesmí se bez dalšího tvrdit, že V1.0, V1.2, V1.21 a V1.22 mají bit-identický writer.
+> This section is source-exact for TC1.22. It must not be assumed without further evidence that V1.0, V1.2, V1.21, and V1.22 have bit-identical writers.
 
 ---
 
 # 12. TurboCopy V1.22 — runtime relocation
 
-Start na `$2D98` provádí relocaci hlavní pracovní oblasti do high monitor/work RAM prostoru.
+The startup code at `$2D98` relocates the main working region into the high monitor/work RAM area.
 
-Relevantní mapping:
+Relevant mapping:
 
 ```text
 source $1974 -> runtime $EBE5
@@ -574,19 +574,19 @@ source $19A0 -> runtime $EC11
 source $19A8 -> runtime $EC19
 ```
 
-Právě `$EBE5` je fyzický CMT writer.
+`$EBE5` is the physical CMT writer.
 
 ---
 
 # 13. TurboCopy V1.22 — 8253 counter 0
 
-TC1.22 programuje 8253 control register hodnotou:
+TC1.22 programs the 8253 control register with:
 
 ```text
 $36
 ```
 
-Dekódování 8253 control word:
+Decoding the 8253 control word:
 
 ```text
 counter = 0
@@ -595,35 +595,35 @@ mode    = MODE 3
 format  = binary
 ```
 
-MODE3 je square-wave generator.
+MODE3 is a square-wave generator.
 
-Sharp MZ-800 service manual uvádí pro counter #0:
+The Sharp MZ-800 service manual specifies the following for counter #0:
 
 ```text
 CLK0 / CKMS = nominal 1.10 MHz
 ```
 
-a OUT0 je přiveden také na:
+and OUT0 is also connected to:
 
 ```text
 Z80 PIO PA4
 ```
 
-TurboCopy tedy používá HW timer jako časovou základnu writeru.
+TurboCopy therefore uses a hardware timer as the writer's time base.
 
 Evidence:
 
 ```text
 COPIER-TIMER-EXACT
 +
-HW-NOMINAL pro převod na µs
+HW-NOMINAL for conversion to µs
 ```
 
 ---
 
 # 14. TurboCopy V1.22 — writer `$EBE5`
 
-Zjednodušený význam runtime rutiny:
+Simplified interpretation of the runtime routine:
 
 ```asm
 LD HL,(E25E)        ; SHORT timer count
@@ -632,27 +632,27 @@ ADD HL,HL           ; Carry => LONG = 2 * SHORT
 
 wait OUT0 phase
 LD A,$03
-OUT ($D3),A         ; jedna CMT WRITE hrana
+OUT ($D3),A         ; one CMT WRITE edge
 
 ...
 
 wait opposite OUT0 phase
 LD A,$02
-OUT ($D3),A         ; druhá CMT WRITE hrana
+OUT ($D3),A         ; the other CMT WRITE edge
 
-CALL $E83D          ; reload 8253 counter 0 z HL
+CALL $E83D          ; reload 8253 counter 0 from HL
 ```
 
-Důležité závěry:
+Important conclusions:
 
 ```text
 SHORT counter = E25E
 LONG  counter = 2 * E25E
 ```
 
-To je přímý writer kód.
+This is direct writer code.
 
-LONG/SHORT ratio v timer count domain je tedy přesně:
+The LONG/SHORT ratio in the timer-count domain is therefore exactly:
 
 ```text
 2:1
@@ -660,9 +660,9 @@ LONG/SHORT ratio v timer count domain je tedy přesně:
 
 ---
 
-# 15. TurboCopy V1.22 — výpočet SHORT counteru
+# 15. TurboCopy V1.22 — calculating the SHORT counter value
 
-Runtime `$E87C/$E89E` používá:
+The runtime code at `$E87C/$E89E` uses:
 
 ```text
 base = 480
@@ -671,33 +671,33 @@ ratio denominator = byte E49B
 offset = 71
 ```
 
-Výsledkem je:
+The result is:
 
 ```text
 SHORT_COUNT =
     floor(480 * numerator / denominator) + 71
 ```
 
-a:
+and:
 
 ```text
 LONG_COUNT = 2 * SHORT_COUNT
 ```
 
-Toto je:
+This is:
 
 ```text
 COPIER-TIMER-EXACT
 ```
 
-V dodaném TC1.22 je výchozí stav:
+In the supplied TC1.22 binary, the default state is:
 
 ```text
 E49B = 2
 E49C = 1
 ```
 
-tedy:
+therefore:
 
 ```text
 SHORT_COUNT
@@ -708,9 +708,9 @@ SHORT_COUNT
 LONG_COUNT = 622
 ```
 
-To odpovídá režimu 2:1.
+This corresponds to 2:1 mode.
 
-Pro ratio 3:1:
+For a 3:1 ratio:
 
 ```text
 SHORT_COUNT
@@ -725,10 +725,10 @@ LONG_COUNT = 462
 
 # 16. TurboCopy V1.22 — MODE3 timer half-periods
 
-Pro 8253 MODE3:
+For 8253 MODE3:
 
-- sudý count: HIGH a LOW mají `N/2` timer clocks,
-- lichý count: jedna fáze má `(N+1)/2`, druhá `(N-1)/2`.
+- even count: HIGH and LOW each last `N/2` timer clocks,
+- odd count: one phase lasts `(N+1)/2`, the other `(N-1)/2`.
 
 ## TC 2:1
 
@@ -740,13 +740,13 @@ LONG count = 622
     MODE3 halves = 311 / 311 CKMS ticks
 ```
 
-Při service-manual nominal:
+At the nominal frequency specified in the service manual:
 
 ```text
 CKMS = 1.10 MHz
 ```
 
-vyjde raw OUT0 reference:
+the raw OUT0 reference is:
 
 ```text
 SHORT:
@@ -768,7 +768,7 @@ LONG count = 462
     MODE3 halves = 231 / 231 CKMS ticks
 ```
 
-Při 1.10 MHz:
+At 1.10 MHz:
 
 ```text
 SHORT:
@@ -780,43 +780,43 @@ LONG:
     231 ticks = 210.000 us
 ```
 
-Tyto hodnoty jsou **timer OUT0 timing**, ne ještě absolutně přesný PC1 cassette-WRITE edge schedule.
+These values describe **timer OUT0 timing**, not yet the exact PC1 cassette-WRITE edge schedule.
 
 ---
 
-# 17. TurboCopy writer — proč nelze timer halves slepě vydávat za exact WRITE µs
+# 17. TurboCopy writer — why timer half-periods cannot simply be treated as exact WRITE µs
 
-TurboCopy writer nepřepojuje CMT WRITE přímo HW výstupem OUT0.
+The TurboCopy writer does not drive CMT WRITE directly from the OUT0 hardware output.
 
 Z80:
 
-1. polluje PIO PA4 / OUT0,
-2. detekuje změnu timer phase,
-3. až potom provede `OUT ($D3),A`.
+1. polls PIO PA4 / OUT0,
+2. detects a timer phase change,
+3. only then executes `OUT ($D3),A`.
 
-Relevantní poll smyčka má řádově:
+The relevant polling loop takes approximately:
 
 ```text
 IN + AND + JP = 25 Z80 T
 ```
 
-Při 3.546875 MHz:
+At 3.546875 MHz:
 
 ```text
 25 T ≈ 7.048 us
 ```
 
-Obě fyzické WRITE hrany mají podobnou následnou instrukční režii, ale okamžik zachycení timer edge je kvantovaný pollingem.
+Both physical WRITE edges have similar subsequent instruction overhead, but the instant at which the timer edge is detected is quantized by polling.
 
-Proto:
+Therefore:
 
 ```text
 exact historical TC cassette WRITE waveform
 ```
 
-není ideálně reprezentován jednou dokonale konstantní H/L čtveřicí.
+is not ideally represented by a single perfectly constant set of four H/L values.
 
-Code-exact historická reprezentace je:
+The code-exact historical representation is:
 
 ```text
 MODE3 counter model
@@ -826,34 +826,34 @@ counter values
 Z80 polling
 ```
 
-Pro pevný čtyřčíselný profil je nutné zvolit aproximaci.
+A fixed four-value profile requires an approximation.
 
 ---
 
-# 18. TurboCopy receiver — přesné readpointy
+# 18. TurboCopy receiver — exact readpoints
 
-`CMT_TIMING_REFERENCE` stanovuje TurboCopy receiver path.
+`CMT_TIMING_REFERENCE` defines the TurboCopy receiver path.
 
-90B loader je zaveden na:
+The 90-byte loader is loaded at:
 
 ```text
 $D400
 ```
 
-Speed byte je:
+The speed byte is at:
 
 ```text
 $D44B
 ```
 
-a loader provede:
+and the loader executes:
 
 ```asm
 LD A,($D44B)
 LD ($0A4B),A
 ```
 
-bez Intercopy `+86 T` EDGE hooku.
+without the Intercopy `+86 T` EDGE hook.
 
 Receiver equation:
 
@@ -892,7 +892,7 @@ RECEIVER-EXACT
 
 # 19. TurboCopy current project waveform vs writer reference
 
-Současný SD2CMT2 používá:
+SD2CMT2 currently uses:
 
 ```text
 TC 1:2:
@@ -904,17 +904,17 @@ TC 1:3:
     LONG  204 / 204 us
 ```
 
-Tyto hodnoty mají dobrou receiver margin.
+These values provide a good receiver margin.
 
-Nejsou však doslovnou reprezentací každého writer edge TC1.22.
+However, they do not literally represent every TC1.22 writer edge.
 
-Jejich status zůstává:
+Their status remains:
 
 ```text
 PROJECT-COMPAT
 ```
 
-Nová TC1.22 analýza poskytuje vedle nich historickou timer reference:
+The new TC1.22 analysis provides a historical timer reference alongside them:
 
 ```text
 TC 2:1:
@@ -926,45 +926,45 @@ TC 3:1:
     timer-centered LONG  ≈ 210 us
 ```
 
-s cca ±jedním polling quantum na jednotlivých software-detected edges.
+with approximately ±one polling quantum on individual software-detected edges.
 
-Proto se nedoporučuje bez HW regression pouze přepsat stávající SD2CMT2 TC constants na timer-centered čísla.
+Therefore, replacing the existing SD2CMT2 TC constants with timer-centered values without hardware regression testing is not recommended.
 
 ---
 
 # 20. TurboCopy V1.22 loader fingerprint
 
-TC1.22 obsahuje 90B loader family zaváděnou na `$D400`.
+TC1.22 contains a 90-byte loader family loaded at `$D400`.
 
-V dodané binárce má extrahovaný 90B template před runtime metadata patchingem SHA-256:
+In the supplied binary, the extracted 90-byte template has the following SHA-256 before runtime metadata patching:
 
 ```text
 8f90221c447fe891a84364a437e66fae3d348bcc72d7cc2bc4d70433e7d7a0d1
 ```
 
-To není bit-identický hash s dříve dokumentovanou V1.21-derived SD2CMT2 šablonou.
+This hash is not identical to that of the previously documented V1.21-derived SD2CMT2 template.
 
-Z toho plyne:
+This implies:
 
-> Nezaměňovat „stejná loader family / stejný timing mechanism“ s „bit-identická verze kopírky“.
+> Do not confuse "the same loader family / timing mechanism" with "a bit-identical version of the tape-copying program".
 
-Pro timing-critical receiver část však TC1.22 přímo obsahuje princip:
+However, the timing-critical receiver section of TC1.22 directly implements the principle:
 
 ```text
 speed byte -> $0A4B
 ```
 
-stejně jako analyzovaná TC family.
+just like the analyzed TC family.
 
 ---
 
-# 21. Leader/framing policy — používat samostatný dokument
+# 21. Leader/framing policy — use the separate document
 
-Pulse timing nesmí měnit leader counts.
+Pulse timing must not change leader counts.
 
-Pro QDTool/SD2CMT2 používat `LEADER_PULSES_UNIFICATION` jako projektovou politiku.
+For MZTools/SD2CMT2, use `LEADER_PULSES_UNIFICATION` as the project policy.
 
-Kanonicky:
+Canonical values:
 
 ```text
 NATIVE NORMAL:
@@ -977,29 +977,29 @@ SPECIAL LOADER:
     turbo DATA   =  5500 SHORT
 ```
 
-Pro IC:
+For IC:
 
 ```text
 11000 / 5500
 ```
 
-má navíc silnou historickou a HW podporu.
+also has strong historical and hardware support.
 
-Pro TC:
+For TC:
 
 ```text
 11000 / 5500 / 5500
 ```
 
-je **SD2CMT2 canonical/optimized framing policy**, nikoliv tvrzení o přesném historickém framingu každé TurboCopy verze.
+is the **SD2CMT2 canonical/optimized framing policy**, not a claim about the exact historical framing of every TurboCopy version.
 
-Tato politika nesmí být zaměněna za pulse-width analýzu tohoto dokumentu.
+This policy must not be confused with the pulse-width analysis in this document.
 
 ---
 
-# 22. Doporučené constants model pro QDTool
+# 22. Recommended constants model for MZTools
 
-QDTool by měl rozlišit minimálně:
+MZTools should distinguish at least:
 
 ```text
 HistoricalWriterProfile
@@ -1027,63 +1027,63 @@ NORMAL_3200:
     long  = 157.604 / 179.595 us
 ```
 
-Pokud MFI/MTI zachovává historická projektová jména:
+If MFI/MTI retains the historical project names:
 
 ```text
 NORMAL 1:3 -> Intercopy 2800 / 7:3
 NORMAL 1:4 -> Intercopy 3200 / 8:3
 ```
 
-musí být toto mapování výslovně dokumentováno.
+this mapping must be explicitly documented.
 
 ---
 
-# 23. Doporučené constants model pro SD2CMT2
+# 23. Recommended constants model for SD2CMT2
 
 ## NATIVE / historical reproduction path
 
-Pokud cílem režimu je reprodukovat Intercopy NORMAL:
+If the mode is intended to reproduce Intercopy NORMAL:
 
 ```text
-použít Intercopy writer-exact reference
+use the Intercopy writer-exact reference
 ```
 
 ## IC hardware-compat path
 
-Pokud cílem je současný HW-proven IC loader:
+If the target is the current hardware-proven IC loader:
 
 ```text
-zachovat IC compatibility waveforms
+retain the IC compatibility waveforms
 ```
 
-dokud nejsou writer-exact hodnoty samostatně otestovány na reálném MZ.
+until the writer-exact values have been independently tested on real MZ hardware.
 
 ## TC hardware-compat path
 
-Současné:
+The current values:
 
 ```text
 TC 1:2 = 144/144, 288/288
 TC 1:3 = 112/112, 204/204
 ```
 
-mají dobré receiver margins.
+provide good receiver margins.
 
-TC1.22 source-exact writer je lépe modelovat pomocí:
+The TC1.22 source-exact writer is better modeled using:
 
 ```text
 8253 MODE3 + counter values + polling
 ```
 
-než tvrdit, že historický writer měl jednu absolutně konstantní symetrickou čtveřici.
+than by claiming that the historical writer used a single absolutely constant symmetric set of four values.
 
 ---
 
-# 24. Doporučená tabulka zdrojové autority
+# 24. Recommended table of authoritative sources
 
-| Profil / údaj | Autoritativní hodnota | Evidence |
+| Profile / item | Authoritative value | Evidence |
 |---|---|---|
-| MZ-800 NORMAL 1× ROM | dle `CMT_TIMING_REFERENCE` | ROM-PATH-HIGH |
+| MZ-800 NORMAL 1× ROM | per `CMT_TIMING_REFERENCE` | ROM-PATH-HIGH |
 | Intercopy NORMAL 1200 | 234.573/263.894, 469.145/494.802 us | COPIER-WRITER-EXACT |
 | Intercopy NORMAL 2400 | 113.621/139.278, 234.573/260.229 us | COPIER-WRITER-EXACT |
 | Intercopy NORMAL 2800 | 87.965/124.617, 175.930/223.577 us | COPIER-WRITER-EXACT |
@@ -1104,28 +1104,28 @@ než tvrdit, že historický writer měl jednu absolutně konstantní symetricko
 
 ---
 
-# 25. Co se nesmí znovu zaměnit
+# 25. Distinctions that must not be confused again
 
-## 25.1 NORMAL 3200 není IC 1:4 waveform
+## 25.1 NORMAL 3200 is not the IC 1:4 waveform
 
-Zakázaná inference:
+Invalid inference:
 
 ```text
 IC 1:4 speed byte = $11
-=> NORMAL 1:4 musí být 112/80,176/160
+=> NORMAL 1:4 must be 112/80,176/160
 ```
 
-Správně:
+Correct interpretation:
 
 ```text
-$11 je receiver/readpoint speed byte
+$11 is the receiver/readpoint speed byte
 +
-Intercopy 3200 writer používá vlastní t1..t4 row
+The Intercopy 3200 writer uses its own t1..t4 row
 ```
 
 ---
 
-## 25.2 Intercopy 3/4 nejsou matematické 3×/4×
+## 25.2 Intercopy 3/4 are not mathematically 3×/4×
 
 ```text
 "3" -> 2800 Bd -> 7:3 ≈ 2.333×
@@ -1134,15 +1134,15 @@ Intercopy 3200 writer používá vlastní t1..t4 row
 
 ---
 
-## 25.3 TurboCopy receiver delay není writer pulse width
+## 25.3 TurboCopy receiver delay is not the writer pulse width
 
 ```text
 $29 / $1B
 ```
 
-jsou receive DLY3 values.
+are receive DLY3 values.
 
-Writer TC1.22 používá:
+The TC1.22 writer uses:
 
 ```text
 8253 MODE3
@@ -1151,9 +1151,9 @@ E25E counter
 
 ---
 
-## 25.4 TC fixed µs profile není bit-exact TC writer
+## 25.4 A fixed TC µs profile is not a bit-exact TC writer
 
-Historický writer má:
+The historical writer follows this sequence:
 
 ```text
 HW timer edge
@@ -1161,37 +1161,37 @@ HW timer edge
 -> software CMT WRITE edge
 ```
 
-Proto fixní waveform je nutně aproximace.
+A fixed waveform is therefore necessarily an approximation.
 
 ---
 
-## 25.5 Leader count není pulse duration
+## 25.5 Leader count is not pulse duration
 
-Použít `LEADER_PULSES_UNIFICATION`.
+Use `LEADER_PULSES_UNIFICATION`.
 
-Rychlejší waveform nesmí automaticky měnit počet leader pulzů.
+A faster waveform must not automatically change the number of leader pulses.
 
 ---
 
-# 26. Doporučení pro další implementaci
+# 26. Recommendations for further implementation
 
-## QDTool
+## MZTools
 
-1. Opravit NORMAL 1:4 tak, aby nebyl kopií IC 1:4 compatibility timing.
-2. Pokud názvy 1:3/1:4 reprezentují Intercopy slots:
+1. Correct NORMAL 1:4 so that it does not duplicate IC 1:4 compatibility timing.
+2. If the names 1:3/1:4 represent Intercopy slots:
    - 1:3 -> 2800 Bd code-derived row,
    - 1:4 -> 3200 Bd code-derived row.
-3. Pro WAV s 3200 Bd preferovat 88.2 kHz nebo vyšší sample rate.
-4. Oddělit writer-fidelity profily od loader-compatibility profilů.
-5. Přidat automatické edge-duration testy pro všechny waveform profily.
+3. For WAV at 3200 Bd, prefer a sample rate of 88.2 kHz or higher.
+4. Separate writer-fidelity profiles from loader-compatibility profiles.
+5. Add automated edge-duration tests for all waveform profiles.
 
 ## SD2CMT2
 
-1. Neměnit HW-proven IC/TC compatibility constants pouze na základě historické fidelity.
-2. Pokud se zavede faithful Intercopy NORMAL profil, použít code-derived row.
-3. Pokud se zavede faithful TurboCopy profil, ideálně modelovat MODE3 count a polling, ne jen čtyři absolutní µs hodnoty.
-4. Všechny změny IC/TC časování provést až s real-MZ regression.
-5. Leader counts držet podle `LEADER_PULSES_UNIFICATION`.
+1. Do not change hardware-proven IC/TC compatibility constants solely on the basis of historical fidelity.
+2. If a faithful Intercopy NORMAL profile is introduced, use the code-derived row.
+3. If a faithful TurboCopy profile is introduced, ideally model the MODE3 count and polling rather than just four absolute µs values.
+4. Make any IC/TC timing changes only with regression testing on real MZ hardware.
+5. Keep leader counts consistent with `LEADER_PULSES_UNIFICATION`.
 
 ---
 
@@ -1308,26 +1308,26 @@ framing_policy:
 
 ---
 
-# 28. Finální rozhodovací pravidlo
+# 28. Final decision rule
 
-Při nastavování nové konstanty v QDTool nebo SD2CMT2 se nejdřív musí odpovědět:
+Before defining a new constant in MZTools or SD2CMT2, first answer:
 
 ```text
-Chci:
-A) historicky věrný writer waveform?
-B) waveform s nejlepší receiver margin?
-C) kanonický project framing?
+Do I want:
+A) a historically faithful writer waveform?
+B) a waveform with the best receiver margin?
+C) canonical project framing?
 ```
 
-Pak:
+Then:
 
 ```text
-A -> použij tento dokument / COPIER-WRITER-EXACT nebo COPIER-TIMER-EXACT
+A -> use this document / COPIER-WRITER-EXACT or COPIER-TIMER-EXACT
 
-B -> použij CMT_TIMING_REFERENCE receiver windows
+B -> use the CMT_TIMING_REFERENCE receiver windows
      + HW regression
 
-C -> použij LEADER_PULSES_UNIFICATION
+C -> use LEADER_PULSES_UNIFICATION
 ```
 
-Nikdy neodvozovat jednu z těchto vrstev automaticky z druhé.
+Never derive one of these layers automatically from another.

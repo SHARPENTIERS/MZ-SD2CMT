@@ -12,4 +12,6 @@ typedef enum
 } play_screen_action_t;
 
 play_screen_action_t play_screen_handle_event(button_event_t event);
+void play_screen_show_qd_loading(uint8_t percent);
+void play_screen_show_qd_preparing(void);
 void play_screen_render(const play_controller_view_t *view);

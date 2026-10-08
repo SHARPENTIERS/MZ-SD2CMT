@@ -5,6 +5,7 @@
 #include "../record/record_path_buffer.h"
 #include "../formats/mzi_sidecar.h"
 #include "play_engine.h"
+#include "mzf_playback.h"
 #include "../drivers/mzio.h"
 #include "../drivers/sdcard.h"
 #include "../drivers/wav_playback_driver.h"
@@ -86,17 +87,8 @@ static bool play_controller_can_start(void)
 
 static void play_controller_refresh_info_sidecar(void)
 {
-    session_has_info_sidecar = false;
-    if (session_format == FILE_FORMAT_MZF)
-    {
-        session_has_info_sidecar =
-            mzi_sidecar_exists_for_mzf(session_full_path);
-    }
-    else if (session_format == FILE_FORMAT_MZT)
-    {
-        session_has_info_sidecar =
-            mzi_sidecar_exists_for_mzt(session_full_path);
-    }
+    session_has_info_sidecar =
+        mzi_sidecar_exists_for_tape(session_full_path, session_format);
 }
 
 static void play_controller_clear_pause_reason(void)
@@ -130,6 +122,17 @@ static bool play_controller_start_engine(void)
 {
     if (!play_engine_start())
     {
+        if (mzf_playback_qd_load_was_cancelled())
+        {
+            session_state = PLAY_CONTROLLER_STATE_READY;
+            mzt_selection_pending = true;
+            waiting_for_motor = false;
+            motor_control_released = false;
+            manual_motor_override = false;
+            play_controller_clear_pause_reason();
+            mz_sense_set(true);
+            return false;
+        }
         session_state = PLAY_CONTROLLER_STATE_ERROR;
         return false;
     }
@@ -286,12 +289,16 @@ void play_controller_start_session(const char *filename,
 
     play_controller_refresh_info_sidecar();
 
+    /* A newly selected path must never inherit offsets from another physical
+       QuickDisk image. Re-preparing records inside this session keeps them. */
+    mzf_playback_invalidate_qd_cache();
+
     if (!play_controller_prepare_engine(1U))
     {
         return;
     }
 
-    if (session_format == FILE_FORMAT_MZT)
+    if (file_format_is_record_container(session_format))
     {
         /* Give the user a chance to pick any logical record before arming the
            tape transport. This also prevents a high MOTOR from immediately
@@ -320,7 +327,7 @@ bool play_controller_select_mzt_record(int8_t direction)
     uint16_t count;
     uint16_t target;
 
-    if ((session_format != FILE_FORMAT_MZT) || !mzt_selection_pending ||
+    if (!file_format_is_record_container(session_format) || !mzt_selection_pending ||
         (session_state != PLAY_CONTROLLER_STATE_READY) ||
         (direction == 0))
     {
@@ -405,7 +412,7 @@ void play_controller_toggle_play_pause(void)
             waiting_for_motor = false;
             motor_control_released = false;
             manual_motor_override = false;
-            mzt_selection_pending = (session_format == FILE_FORMAT_MZT);
+            mzt_selection_pending = file_format_is_record_container(session_format);
             play_controller_clear_pause_reason();
             mz_sense_set(true);
             break;
@@ -437,7 +444,7 @@ bool play_controller_stop_to_mzt_selector(void)
         Returning false while the selector is already visible lets the normal
         PLAY_SCREEN_ACTION_BACK path perform the second step.
     */
-    if ((session_format != FILE_FORMAT_MZT) ||
+    if (!file_format_is_record_container(session_format) ||
         mzt_selection_pending ||
         session_media_removed)
     {
@@ -507,8 +514,9 @@ static bool play_controller_recover_inserted_media(void)
     mzt_selection_pending = false;
     play_controller_clear_pause_reason();
     play_controller_refresh_info_sidecar();
+    mzf_playback_invalidate_qd_cache();
 
-    if (session_format == FILE_FORMAT_MZT)
+    if (file_format_is_record_container(session_format))
     {
         record_index = play_engine_get_prepared_mzt_record_index();
         if (record_index == 0U) record_index = 1U;
@@ -520,7 +528,7 @@ static bool play_controller_recover_inserted_media(void)
     }
 
     session_state = PLAY_CONTROLLER_STATE_READY;
-    if (session_format == FILE_FORMAT_MZT)
+    if (file_format_is_record_container(session_format))
     {
         /* Return to the MZT selector at the interrupted record.  Do not
            automatically resume an interrupted tape stream after media swap. */
@@ -616,7 +624,7 @@ void play_controller_service(void)
                 motor_control_released = false;
             manual_motor_override = false;
                 play_controller_clear_pause_reason();
-                if (session_format == FILE_FORMAT_MZT)
+                if (file_format_is_record_container(session_format))
                 {
                     /* End of the selected MZT run returns to the record chooser
                        instead of silently restarting record 1. */
